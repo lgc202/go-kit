@@ -108,8 +108,6 @@ func TestInfo_Text(t *testing.T) {
 		GitCommit:    "abc123",
 		GitTreeState: "clean",
 		BuildDate:    "2024-01-01T00:00:00Z",
-		BuildUser:    "testuser",
-		BuildHost:    "testhost",
 		GoVersion:    "go1.21.0",
 		Compiler:     "gc",
 		Platform:     "linux/amd64",
@@ -123,8 +121,6 @@ func TestInfo_Text(t *testing.T) {
 		"gitCommit:", "abc123",
 		"gitTreeState:", "clean",
 		"buildDate:", "2024-01-01T00:00:00Z",
-		"buildUser:", "testuser",
-		"buildHost:", "testhost",
 		"goVersion:", "go1.21.0",
 		"compiler:", "gc",
 		"platform:", "linux/amd64",
@@ -152,12 +148,6 @@ func TestInfo_Text_OmitEmpty(t *testing.T) {
 	// 空字段不应该出现
 	if strings.Contains(text, "gitTreeState:") {
 		t.Error("Text() should not contain empty gitTreeState")
-	}
-	if strings.Contains(text, "buildUser:") {
-		t.Error("Text() should not contain empty buildUser")
-	}
-	if strings.Contains(text, "buildHost:") {
-		t.Error("Text() should not contain empty buildHost")
 	}
 }
 

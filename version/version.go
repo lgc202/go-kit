@@ -21,10 +21,6 @@ var (
 	gitCommit = "$Format:%H$"
 	// gitTreeState 代表构建时 Git 仓库的状态，值为 clean 或 dirty
 	gitTreeState = ""
-	// buildUser 是执行构建的用户
-	buildUser = ""
-	// buildHost 是执行构建的主机名
-	buildHost = ""
 )
 
 // Info 包含了版本信息
@@ -33,8 +29,6 @@ type Info struct {
 	GitCommit    string `json:"gitCommit"`
 	GitTreeState string `json:"gitTreeState,omitempty"`
 	BuildDate    string `json:"buildDate"`
-	BuildUser    string `json:"buildUser,omitempty"`
-	BuildHost    string `json:"buildHost,omitempty"`
 	GoVersion    string `json:"goVersion"`
 	Compiler     string `json:"compiler"`
 	Platform     string `json:"platform"`
@@ -83,12 +77,6 @@ func (info Info) Text() string {
 		table.AddRow("gitTreeState:", info.GitTreeState)
 	}
 	table.AddRow("buildDate:", info.BuildDate)
-	if info.BuildUser != "" {
-		table.AddRow("buildUser:", info.BuildUser)
-	}
-	if info.BuildHost != "" {
-		table.AddRow("buildHost:", info.BuildHost)
-	}
 	table.AddRow("goVersion:", info.GoVersion)
 	table.AddRow("compiler:", info.Compiler)
 	table.AddRow("platform:", info.Platform)
@@ -103,8 +91,6 @@ func Get() Info {
 		GitCommit:    gitCommit,
 		GitTreeState: gitTreeState,
 		BuildDate:    buildDate,
-		BuildUser:    buildUser,
-		BuildHost:    buildHost,
 		GoVersion:    runtime.Version(),
 		Compiler:     runtime.Compiler,
 		Platform:     fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),

@@ -6,7 +6,7 @@
 set -e
 
 # 项目根目录
-ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 
 # 版本信息包路径
 VERSION_PKG="github.com/lgc202/go-kit/version"
@@ -19,16 +19,12 @@ if [[ -n $(git status --porcelain 2>/dev/null) ]]; then
     GIT_TREE_STATE="dirty"
 fi
 BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-BUILD_USER=$(whoami)
-BUILD_HOST=$(hostname)
 
 # 构建 ldflags
 LDFLAGS="-X ${VERSION_PKG}.gitVersion=${GIT_VERSION}"
 LDFLAGS="${LDFLAGS} -X ${VERSION_PKG}.gitCommit=${GIT_COMMIT}"
 LDFLAGS="${LDFLAGS} -X ${VERSION_PKG}.gitTreeState=${GIT_TREE_STATE}"
 LDFLAGS="${LDFLAGS} -X ${VERSION_PKG}.buildDate=${BUILD_DATE}"
-LDFLAGS="${LDFLAGS} -X ${VERSION_PKG}.buildUser=${BUILD_USER}"
-LDFLAGS="${LDFLAGS} -X ${VERSION_PKG}.buildHost=${BUILD_HOST}"
 
 # 输出构建信息
 echo "Building with version info:"
@@ -36,8 +32,6 @@ echo "  Git Version:    ${GIT_VERSION}"
 echo "  Git Commit:     ${GIT_COMMIT}"
 echo "  Git Tree State: ${GIT_TREE_STATE}"
 echo "  Build Date:     ${BUILD_DATE}"
-echo "  Build User:     ${BUILD_USER}"
-echo "  Build Host:     ${BUILD_HOST}"
 echo ""
 
 # 构建示例程序
