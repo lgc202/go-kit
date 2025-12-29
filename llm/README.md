@@ -19,19 +19,16 @@ Provider-agnostic Go `llm.Client` with:
 
 ```go
 provider, _ := openai.New(os.Getenv("OPENAI_API_KEY"), openai.WithDefaultModel("gpt-4o-mini"))
-client := llm.New(provider)
+client := llm.New(provider, llm.WithTemperature(0.7))
 
-req := llm.NewChatRequest("", llm.Message{Role: llm.RoleUser, Content: "Hello"}).
-  With(llm.WithTemperature(0.7))
-
-resp, _ := client.Chat(ctx, req)
+resp, _ := client.Chat(ctx, []llm.Message{{Role: llm.RoleUser, Content: "Hello"}})
 fmt.Println(resp.FirstText())
 ```
 
 ## Streaming
 
 ```go
-stream, _ := client.ChatStream(ctx, llm.NewChatRequest("", llm.Message{Role: llm.RoleUser, Content: "Explain SSE."}))
+stream, _ := client.ChatStream(ctx, []llm.Message{{Role: llm.RoleUser, Content: "Explain SSE."}})
 defer stream.Close()
 
 for {
@@ -66,7 +63,8 @@ Pass them in the request:
 
 ```go
 tc := llm.AutoToolChoice()
-req := llm.NewChatRequest("...", msgs...).With(
+resp, _ := client.Chat(ctx, msgs,
+  llm.WithModel("..."),
   llm.WithTools(tools...),
   llm.WithToolChoice(tc),
 )
@@ -86,14 +84,13 @@ DeepSeek also supports controlling thinking in the request:
 ```go
 provider, _ := deepseek.New(os.Getenv("DEEPSEEK_API_KEY"),
   deepseek.WithDefaultModel("deepseek-chat"),
-  // provider-level default (applies to all requests)
-  deepseek.WithDefaultRequest(deepseek.WithThinkingDisabled()),
 )
 
+// client-level default (applies to all requests)
+client := llm.New(provider, deepseek.WithThinkingDisabled())
+
 // Or override per-request:
-req := llm.NewChatRequest("", msgs...).With(
-  deepseek.WithThinkingEnabled(),
-)
+resp, _ := client.Chat(ctx, msgs, deepseek.WithThinkingEnabled())
 ```
 
 ## Providers

@@ -68,16 +68,13 @@ func TestDeepSeek_ThinkingDisabled(t *testing.T) {
 	p, err := New("key",
 		WithHTTPClient(httpClient),
 		WithBaseURL("https://example.test"),
-		WithDefaultRequest(WithThinkingDisabled()),
 	)
 	if err != nil {
 		t.Fatalf("New() err=%v", err)
 	}
 
-	resp, err := p.Chat(context.Background(), llm.ChatRequest{
-		Model:    "deepseek-chat",
-		Messages: []llm.Message{{Role: llm.RoleUser, Content: "hi"}},
-	})
+	client := llm.New(p, WithThinkingDisabled())
+	resp, err := client.Chat(context.Background(), []llm.Message{{Role: llm.RoleUser, Content: "hi"}}, llm.WithModel("deepseek-chat"))
 	if err != nil {
 		t.Fatalf("Chat() err=%v", err)
 	}

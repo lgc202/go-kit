@@ -1,8 +1,11 @@
 package deepseek
 
-import "github.com/lgc202/go-kit/llm/providers/openai_compat"
+import (
+	"github.com/lgc202/go-kit/llm"
+	"github.com/lgc202/go-kit/llm/providers/openai_compat"
+)
 
-// Option configures the DeepSeek provider (client-level defaults).
+// Option configures the DeepSeek provider (HTTP / endpoint behavior).
 type Option = openai_compat.Option
 
 // Re-export common OpenAI-compatible options.
@@ -15,7 +18,6 @@ var (
 	WithDefaultHeader       = openai_compat.WithDefaultHeader
 	WithChatCompletionsPath = openai_compat.WithChatCompletionsPath
 	WithDefaultModel        = openai_compat.WithDefaultModel
-	WithDefaultRequest      = openai_compat.WithDefaultRequest
 	WithHooks               = openai_compat.WithHooks
 )
 
@@ -35,16 +37,14 @@ type Thinking struct {
 	Type ThinkingType `json:"type"`
 }
 
-// WithDefaultThinking sets a provider-level default for DeepSeek `thinking`.
+// WithThinking sets the DeepSeek `thinking` field.
 //
-// Equivalent to:
-//
-//	WithDefaultRequest(deepseek.WithThinking(cfg))
-func WithDefaultThinking(cfg Thinking) Option {
-	return WithDefaultRequest(WithThinking(cfg))
+// The same option can be used:
+// - as a client default: llm.New(provider, deepseek.WithThinkingDisabled())
+// - per call override:  client.Chat(ctx, msgs, deepseek.WithThinkingEnabled())
+func WithThinking(cfg Thinking) llm.RequestOption {
+	return llm.WithExtra("thinking", cfg)
 }
 
-func WithDefaultThinkingDisabled() Option {
-	return WithDefaultThinking(Thinking{Type: ThinkingDisabled})
-}
-func WithDefaultThinkingEnabled() Option { return WithDefaultThinking(Thinking{Type: ThinkingEnabled}) }
+func WithThinkingDisabled() llm.RequestOption { return WithThinking(Thinking{Type: ThinkingDisabled}) }
+func WithThinkingEnabled() llm.RequestOption  { return WithThinking(Thinking{Type: ThinkingEnabled}) }

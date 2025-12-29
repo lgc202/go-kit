@@ -22,9 +22,7 @@ func main() {
 	}
 	client := llm.New(provider)
 
-	stream, err := client.ChatStream(context.Background(), llm.ChatRequest{
-		Messages: []llm.Message{{Role: llm.RoleUser, Content: "Say hello."}},
-	})
+	stream, err := client.ChatStream(context.Background(), []llm.Message{{Role: llm.RoleUser, Content: "Say hello."}})
 	if err != nil {
 		panic(err)
 	}

@@ -13,6 +13,5 @@ var (
 	WithDefaultHeader       = openai_compat.WithDefaultHeader
 	WithChatCompletionsPath = openai_compat.WithChatCompletionsPath
 	WithDefaultModel        = openai_compat.WithDefaultModel
-	WithDefaultRequest      = openai_compat.WithDefaultRequest
 	WithHooks               = openai_compat.WithHooks
 )
