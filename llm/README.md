@@ -14,6 +14,8 @@ Provider-agnostic Go `llm.Client` with:
 - `llm/providers/openai_compat`: OpenAI-compatible provider base (patch via options/hooks)
 - `llm/providers/deepseek`: example OpenAI-compatible provider wrapper
 - `llm/providers/qwen`: Qwen (DashScope) OpenAI-compatible provider wrapper
+- `llm/providers/kimi`: Kimi (Moonshot) OpenAI-compatible provider wrapper
+- `llm/providers/ollama`: Ollama OpenAI-compatible provider wrapper
 
 ## Quick start
 
@@ -98,6 +100,8 @@ resp, _ := client.Chat(ctx, msgs, deepseek.WithThinkingEnabled())
 - OpenAI: `openai.New(key, openai.WithDefaultModel("...") )`
 - DeepSeek: `deepseek.New(key, deepseek.WithDefaultModel("deepseek-chat"))`
 - Qwen (DashScope compatible-mode): `qwen.New(key, qwen.WithDefaultModel("qwen-plus"))`
+- Kimi (Moonshot): `kimi.New(key, kimi.WithDefaultModel("moonshot-v1-8k"))`
+- Ollama (local): `ollama.New("", ollama.WithDefaultModel("llama3"))`
 
 ## Request fields
 
