@@ -79,11 +79,6 @@ func (s *stream) Recv() (schema.StreamEvent, error) {
 						})
 					}
 				}
-				if s.adapter != nil {
-					if err := s.adapter.EnrichStreamDelta(&ev, nil); err != nil {
-						return schema.StreamEvent{}, err
-					}
-				}
 				if s.keepRaw {
 					ev.Raw = json.RawMessage([]byte(data))
 				}
@@ -132,6 +127,16 @@ func (s *stream) Recv() (schema.StreamEvent, error) {
 			if u := mapped[len(mapped)-1].Usage; u != nil && chunk.Usage.CompletionTokensDetails != nil && chunk.Usage.CompletionTokensDetails.ReasoningTokens != 0 {
 				u.CompletionTokensDetails = &schema.CompletionTokensDetails{
 					ReasoningTokens: chunk.Usage.CompletionTokensDetails.ReasoningTokens,
+				}
+			}
+		}
+
+		// 调用 adapter 丰富流式事件
+		if s.adapter != nil {
+			raw := json.RawMessage([]byte(data))
+			for i := range mapped {
+				if err := s.adapter.EnrichStreamEvent(&mapped[i], raw); err != nil {
+					return schema.StreamEvent{}, err
 				}
 			}
 		}

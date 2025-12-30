@@ -12,7 +12,7 @@ import (
 // RequestOption 是请求配置的可选参数函数类型
 type RequestOption func(*RequestConfig)
 
-// RequestConfig 表示单次聊天请求的配置
+// RequestConfig 表示单次 chat 请求的配置
 type RequestConfig struct {
 	// === 基础参数 ===
 
@@ -77,7 +77,7 @@ type RequestConfig struct {
 
 	// === 候选结果 ===
 
-	// N 设置返回的聊天完成选择数量
+	// N 设置返回的 chat completion 选择数量
 	// 默认值为 1。设置大于 1 时会生成多个候选响应
 	N *int
 
@@ -122,20 +122,20 @@ type RequestConfig struct {
 	// Headers 设置发送到 API 的自定义 HTTP 头
 	Headers http.Header
 
-	// ExtraFields 允许提供商特定的扩展，这些字段会直接合并到请求体中
-	// 提供商也可以通过 adapter 应用自定义逻辑
+	// ExtraFields 允许 provider 特定的扩展，这些字段会直接合并到请求体中
+	// Provider 也可以通过 adapter 应用自定义逻辑
 	ExtraFields map[string]any
 
-	// KeepRaw 设置是否保留提供商原始的 JSON 响应
+	// KeepRaw 设置是否保留 provider 原始的 JSON 响应
 	// 为 true 时，schema.ChatResponse.Raw 和 schema.StreamEvent.Raw 会包含原始响应
 	// 默认为 false 以减少内存占用
 	KeepRaw bool
 
-	// StreamingFunc 是流式输出回调（客户端使用，不发送到提供商）
+	// StreamingFunc 是流式输出回调（客户端使用，不发送到 provider）
 	// 在 llm.Wrap(...).Chat 中使用流式 API 时会被调用
 	StreamingFunc func(ctx context.Context, chunk []byte) error
 
-	// StreamingReasoningFunc 是推理内容的流式回调（客户端使用，不发送到提供商）
+	// StreamingReasoningFunc 是推理内容的流式回调（客户端使用，不发送到 provider）
 	// 用于分离推理内容和实际内容的流式输出
 	StreamingReasoningFunc func(ctx context.Context, reasoningChunk, chunk []byte) error
 }
@@ -338,7 +338,7 @@ func WithResponseFormat(format schema.ResponseFormat) RequestOption {
 
 // === 候选结果 ===
 
-// WithN 设置返回的聊天完成选择数量
+// WithN 设置返回的 chat completion 选择数量
 // 默认值为 1，大于 1 时会生成多个候选响应
 func WithN(n int) RequestOption {
 	return func(c *RequestConfig) {
@@ -451,7 +451,7 @@ func WithExtraHeaders(headers map[string]string) RequestOption {
 }
 
 // WithExtraFields 批量设置扩展字段
-// 这些字段会直接合并到请求体中，用于支持提供商特定的功能
+// 这些字段会直接合并到请求体中，用于支持 provider 特定的功能
 func WithExtraFields(fields map[string]any) RequestOption {
 	return func(c *RequestConfig) {
 		if len(fields) == 0 {
@@ -475,7 +475,7 @@ func WithExtraField(key string, value any) RequestOption {
 	}
 }
 
-// WithKeepRaw 设置是否保留提供商原始的 JSON 响应
+// WithKeepRaw 设置是否保留 provider 原始的 JSON 响应
 func WithKeepRaw(enabled bool) RequestOption {
 	return func(c *RequestConfig) {
 		c.KeepRaw = enabled

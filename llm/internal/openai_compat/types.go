@@ -1,6 +1,6 @@
 package openai_compat
 
-// OpenAI 兼容的聊天完成接口类型定义
+// OpenAI 兼容的 chat completion 接口类型定义
 type errorResponse struct {
 	Error struct {
 		Message string `json:"message"`

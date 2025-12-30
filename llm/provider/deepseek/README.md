@@ -10,7 +10,7 @@ go-kit 的企业级 DeepSeek API 客户端。
 - ✅ **JSON 模式** - 支持 `json_object` 和 `json_schema` 结构化输出
 - ✅ **Token 使用详情** - 包含缓存命中/未命中和推理 token
 - ✅ **流式选项** - 流式响应中包含使用统计
-- ✅ **类型安全选项** - 提供商特定的便捷函数
+- ✅ **类型安全选项** - provider 特定的便捷函数
 
 ## 安装
 
@@ -372,14 +372,14 @@ client, err := deepseek.New(deepseek.Config{
 })
 ```
 
-## 提供商检测
+## Provider 检测
 
 ```go
 import "github.com/lgc202/go-kit/llm"
 
 var client llm.ChatModel = deepseek.New(...)
 
-// 检测提供商
+// 检测 provider
 provider := llm.ProviderOf(client)
 if provider == llm.ProviderDeepSeek {
     // 使用 DeepSeek 特有选项

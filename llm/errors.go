@@ -2,7 +2,7 @@ package llm
 
 import "fmt"
 
-// UnsupportedOptionError 表示请求选项或 schema 功能不被给定的提供商/客户端实现支持
+// UnsupportedOptionError 表示请求选项或 schema 功能不被给定的 provider/客户端实现支持
 //
 // 使用 errors.As(err, *UnsupportedOptionError) 来判断此错误
 type UnsupportedOptionError struct {
@@ -33,9 +33,9 @@ func (e *UnsupportedOptionError) Error() string {
 	}
 }
 
-// APIError 表示提供商 HTTP 错误，尽可能包含解析后的字段
+// APIError 表示 provider HTTP 错误，尽可能包含解析后的字段
 //
-// 提供商通常返回包含 message、type 和 code 的 JSON 响应体。
+// Provider 通常返回包含 message、type 和 code 的 JSON 响应体。
 // 当这些字段存在时，openai_compat 会返回 *APIError，以便调用者可以基于
 // StatusCode/Code/Type 进行判断
 type APIError struct {

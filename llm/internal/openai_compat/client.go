@@ -177,27 +177,14 @@ func (c *Client) doRequest(ctx context.Context, payload map[string]any, cfg llm.
 	return resp, nil
 }
 
-// parseChatResponse 解析聊天响应
+// parseChatResponse 解析 chat 响应
 func (c *Client) parseChatResponse(resp *http.Response, cfg llm.RequestConfig) (schema.ChatResponse, error) {
-	var out chatCompletionResponse
-	var raw []byte
-
-	if cfg.KeepRaw {
-		respBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return schema.ChatResponse{}, fmt.Errorf("%s: read response: %w", c.provider, err)
-		}
-		raw = respBytes
-		if err := json.Unmarshal(respBytes, &out); err != nil {
-			return schema.ChatResponse{}, fmt.Errorf("%s: decode response: %w", c.provider, err)
-		}
-	} else {
-		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-			return schema.ChatResponse{}, fmt.Errorf("%s: decode response: %w", c.provider, err)
-		}
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return schema.ChatResponse{}, fmt.Errorf("%s: read response: %w", c.provider, err)
 	}
 
-	return c.mapChatResponse(out, raw, cfg.KeepRaw)
+	return c.mapChatResponse(respBytes, cfg.KeepRaw)
 }
 
 func (c *Client) buildChatRequest(messages []schema.Message, cfg llm.RequestConfig, stream bool) (map[string]any, error) {
@@ -236,7 +223,7 @@ func (c *Client) buildChatRequest(messages []schema.Message, cfg llm.RequestConf
 	// 应用其他可选参数
 	c.applyOptionalParams(req, cfg)
 
-	// 应用提供商特定扩展
+	// 应用 provider 特定扩展
 	if err := c.applyProviderExtensions(req, cfg); err != nil {
 		return nil, err
 	}
@@ -340,7 +327,7 @@ func (c *Client) applyOptionalParams(req map[string]any, cfg llm.RequestConfig) 
 	return nil
 }
 
-// applyProviderExtensions 应用提供商特定的扩展
+// applyProviderExtensions 应用 provider 特定的扩展
 func (c *Client) applyProviderExtensions(req map[string]any, cfg llm.RequestConfig) error {
 	if c.adapter != nil {
 		return c.adapter.ApplyRequestExtensions(req, cfg)
@@ -490,7 +477,12 @@ func mapResponseFormat(rf schema.ResponseFormat) (map[string]any, error) {
 	return out, nil
 }
 
-func (c *Client) mapChatResponse(in chatCompletionResponse, raw []byte, keepRaw bool) (schema.ChatResponse, error) {
+func (c *Client) mapChatResponse(raw []byte, keepRaw bool) (schema.ChatResponse, error) {
+	var in chatCompletionResponse
+	if err := json.Unmarshal(raw, &in); err != nil {
+		return schema.ChatResponse{}, fmt.Errorf("%s: decode response: %w", c.provider, err)
+	}
+
 	out := schema.ChatResponse{
 		ID:    in.ID,
 		Model: in.Model,
@@ -503,7 +495,7 @@ func (c *Client) mapChatResponse(in chatCompletionResponse, raw []byte, keepRaw 
 		},
 		ServiceTier: in.ServiceTier,
 	}
-	if keepRaw && len(raw) > 0 {
+	if keepRaw {
 		out.Raw = json.RawMessage(raw)
 	}
 	if in.Usage.CompletionTokensDetails != nil && in.Usage.CompletionTokensDetails.ReasoningTokens != 0 {
@@ -517,18 +509,18 @@ func (c *Client) mapChatResponse(in chatCompletionResponse, raw []byte, keepRaw 
 
 	out.Choices = make([]schema.Choice, 0, len(in.Choices))
 	for _, c0 := range in.Choices {
-		msg := mapWireMessage(c0.Message)
-		if c.adapter != nil {
-			if err := c.adapter.EnrichResponseMessage(&msg, nil); err != nil {
-				return schema.ChatResponse{}, err
-			}
-		}
-
 		out.Choices = append(out.Choices, schema.Choice{
 			Index:        c0.Index,
-			Message:      msg,
+			Message:      mapWireMessage(c0.Message),
 			FinishReason: schema.FinishReason(c0.FinishReason),
 		})
+	}
+
+	// 调用 adapter 丰富响应数据
+	if c.adapter != nil {
+		if err := c.adapter.EnrichResponse(&out, json.RawMessage(raw)); err != nil {
+			return schema.ChatResponse{}, err
+		}
 	}
 
 	return out, nil
@@ -607,7 +599,7 @@ func normalizeWireContent(in any) []schema.ContentPart {
 
 // parseError 解析 API 错误响应
 func (c *Client) parseError(statusCode int, body []byte) error {
-	// 首先尝试使用 adapter 解析提供商特定错误
+	// 首先尝试使用 adapter 解析 provider 特定错误
 	if c.adapter != nil {
 		if err := c.adapter.ParseError(c.provider, statusCode, body); err != nil {
 			return err

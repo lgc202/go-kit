@@ -24,11 +24,11 @@ type Message struct {
 	// 对于简单文本消息，使用单个 TextContent 部分（通过 schema.TextPart）
 	Content []ContentPart `json:"content"`
 
-	// 可选字段，并非所有提供商都支持/接受这些字段
+	// 可选字段，并非所有 provider 都支持/接受这些字段
 	Name       string `json:"name,omitempty"`
 	ToolCallID string `json:"tool_call_id,omitempty"`
 
-	// 可选字段，用于返回独立推理内容和工具调用的提供商（如 DeepSeek）
+	// 可选字段，用于返回独立推理内容和工具调用的 provider（如 DeepSeek）
 	ReasoningContent string     `json:"reasoning_content,omitempty"`
 	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
 }
@@ -293,7 +293,7 @@ type FunctionDefinition struct {
 	Description string          `json:"description,omitempty"`
 	Parameters  json.RawMessage `json:"parameters,omitempty"`
 
-	// Strict 是提供商依赖的标志，用于结构化输出保证
+	// Strict 是 provider 依赖的标志，用于结构化输出保证
 	Strict bool `json:"strict,omitempty"`
 }
 
@@ -312,7 +312,7 @@ type ToolChoice struct {
 type ResponseFormat struct {
 	Type string `json:"type"`
 
-	// JSONSchema 是提供商特定的 JSON schema 配置，当 Type 为 "json_schema" 时使用
+	// JSONSchema 是 provider 特定的 JSON schema 配置，当 Type 为 "json_schema" 时使用
 	JSONSchema json.RawMessage `json:"json_schema,omitempty"`
 }
 
@@ -364,7 +364,7 @@ type ChatResponse struct {
 	// ServiceTier 返回实际使用的服务层级
 	ServiceTier *string `json:"service_tier,omitempty"`
 
-	// Raw 保留提供商原生载荷，用于调试/向前兼容
+	// Raw 保留 provider 原生载荷，用于调试/向前兼容
 	Raw json.RawMessage `json:"raw,omitempty"`
 }
 
