@@ -19,17 +19,16 @@ const (
 type Message struct {
 	Role Role `json:"role"`
 
-	// Content holds structured content (e.g. text + images).
+	// Content 包含结构化内容（如文本 + 图片）
 	//
-	// For simple text messages, use a single TextContent part (via schema.TextPart).
+	// 对于简单文本消息，使用单个 TextContent 部分（通过 schema.TextPart）
 	Content []ContentPart `json:"content"`
 
-	// Optional fields. Not all providers use/accept these.
+	// 可选字段，并非所有提供商都支持/接受这些字段
 	Name       string `json:"name,omitempty"`
 	ToolCallID string `json:"tool_call_id,omitempty"`
 
-	// Optional fields for providers that return separate reasoning content and
-	// tool calls (e.g. DeepSeek).
+	// 可选字段，用于返回独立推理内容和工具调用的提供商（如 DeepSeek）
 	ReasoningContent string     `json:"reasoning_content,omitempty"`
 	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
 }
@@ -47,12 +46,51 @@ func (m Message) MarshalJSON() ([]byte, error) {
 	}
 
 	var content any
-	if len(m.Content) == 1 {
+	// 处理空内容情况
+	if len(m.Content) == 0 {
+		content = ""
+	} else if len(m.Content) == 1 {
+		// 单个内容部分：如果是文本，简化为字符串
 		if tp, ok := m.Content[0].(TextContent); ok {
 			content = tp.Text
+		} else {
+			// 非文本类型（图片/二进制），使用数组格式
+			parts := make([]map[string]any, 0, 1)
+			for _, p := range m.Content {
+				switch part := p.(type) {
+				case TextContent:
+					parts = append(parts, map[string]any{
+						"type": "text",
+						"text": part.Text,
+					})
+				case ImageURLContent:
+					imageURL := map[string]any{"url": part.URL}
+					if part.Detail != "" {
+						imageURL["detail"] = part.Detail
+					}
+					parts = append(parts, map[string]any{
+						"type":      "image_url",
+						"image_url": imageURL,
+					})
+				case BinaryContent:
+					if part.MIMEType == "" {
+						return nil, fmt.Errorf("schema: binary part mime type required")
+					}
+					parts = append(parts, map[string]any{
+						"type": "binary",
+						"binary": map[string]any{
+							"mime_type": part.MIMEType,
+							"data":      base64.StdEncoding.EncodeToString(part.Data),
+						},
+					})
+				default:
+					return nil, fmt.Errorf("schema: unsupported content part type %T", p)
+				}
+			}
+			content = parts
 		}
-	}
-	if content == nil {
+	} else {
+		// 多个内容部分，使用数组格式
 		parts := make([]map[string]any, 0, len(m.Content))
 		for _, p := range m.Content {
 			switch part := p.(type) {
@@ -255,7 +293,7 @@ type FunctionDefinition struct {
 	Description string          `json:"description,omitempty"`
 	Parameters  json.RawMessage `json:"parameters,omitempty"`
 
-	// Strict is a provider-dependent flag used for structured output guarantees.
+	// Strict 是提供商依赖的标志，用于结构化输出保证
 	Strict bool `json:"strict,omitempty"`
 }
 
@@ -274,8 +312,7 @@ type ToolChoice struct {
 type ResponseFormat struct {
 	Type string `json:"type"`
 
-	// JSONSchema is provider-specific JSON schema configuration when Type is
-	// "json_schema".
+	// JSONSchema 是提供商特定的 JSON schema 配置，当 Type 为 "json_schema" 时使用
 	JSONSchema json.RawMessage `json:"json_schema,omitempty"`
 }
 
@@ -324,7 +361,10 @@ type ChatResponse struct {
 	Choices []Choice `json:"choices"`
 	Usage   Usage    `json:"usage"`
 
-	// Raw holds the provider-native payload for debugging/forward-compat.
+	// ServiceTier 返回实际使用的服务层级
+	ServiceTier *string `json:"service_tier,omitempty"`
+
+	// Raw 保留提供商原生载荷，用于调试/向前兼容
 	Raw json.RawMessage `json:"raw,omitempty"`
 }
 

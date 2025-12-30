@@ -6,22 +6,21 @@ import (
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
-// ChatModel is the minimal, provider-agnostic interface for chat-based LLMs.
+// ChatModel 是用于基于聊天的 LLM 的最小化、提供商无关接口
 type ChatModel interface {
 	Chat(ctx context.Context, messages []schema.Message, opts ...RequestOption) (schema.ChatResponse, error)
 	ChatStream(ctx context.Context, messages []schema.Message, opts ...RequestOption) (Stream, error)
 }
 
-// Stream is a provider-agnostic streaming reader.
+// Stream 是提供商无关的流式读取器
 //
-// Recv returns (schema.StreamEvent, nil) for each event, and io.EOF when the
-// stream ends normally.
+// Recv 为每个事件返回 (schema.StreamEvent, nil)，当流正常结束时返回 io.EOF
 type Stream interface {
 	Recv() (schema.StreamEvent, error)
 	Close() error
 }
 
-// Provider is the canonical identifier of a model provider.
+// Provider 是模型提供商的标准标识符
 type Provider string
 
 const (
@@ -33,8 +32,7 @@ const (
 	ProviderOllama   Provider = "ollama"
 )
 
-// ProviderNamer is an optional interface for discovering which provider a
-// ChatModel instance is backed by.
+// ProviderNamer 是一个可选接口，用于发现 ChatModel 实例背后的提供商
 type ProviderNamer interface {
 	Provider() Provider
 }

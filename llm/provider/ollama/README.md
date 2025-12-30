@@ -119,6 +119,18 @@ resp, err := client.Chat(context.Background(), []schema.Message{
 )
 ```
 
+### 访问 Ollama 特有字段
+
+Ollama 原生 API 返回的性能相关字段（如 `total_duration`, `load_duration`, `prompt_eval_count` 等）在使用 OpenAI 兼容端点时不可用。如需访问这些字段，可以：
+
+```go
+resp, err := client.Chat(context.Background(), messages,
+    llm.WithModel("qwen2.5"),
+    llm.WithKeepRaw(true), // 保留原始响应
+)
+// 使用 resp.Raw 访问 Ollama 原生 JSON 响应
+```
+
 ### 流式响应
 
 ```go

@@ -15,8 +15,7 @@ func newSSEDecoder(r io.Reader) *sseDecoder {
 	return &sseDecoder{r: bufio.NewReader(r)}
 }
 
-// NextData returns the next SSE data payload (joined by "\n") and io.EOF when
-// the underlying reader ends.
+// NextData 返回下一个 SSE 数据载荷（用 "\n" 连接），当底层读取器结束时返回 io.EOF
 func (d *sseDecoder) NextData() (string, error) {
 	for {
 		line, err := d.r.ReadString('\n')

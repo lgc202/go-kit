@@ -1,6 +1,6 @@
 package openai_compat
 
-// Wire types for OpenAI-compatible chat completions.
+// OpenAI 兼容的聊天完成接口类型定义
 type errorResponse struct {
 	Error struct {
 		Message string `json:"message"`
@@ -55,7 +55,8 @@ type chatCompletionResponse struct {
 		Message      wireMessage `json:"message"`
 	} `json:"choices"`
 
-	Usage usage `json:"usage"`
+	Usage       usage   `json:"usage"`
+	ServiceTier *string `json:"service_tier,omitempty"`
 }
 
 type chatCompletionChunk struct {

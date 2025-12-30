@@ -93,6 +93,22 @@ type RequestConfig struct {
 	// 用于企业级追踪和组织，键和值都是字符串，长度不超过 64 字符
 	Metadata map[string]string
 
+	// LogitBias 设置 token 偏置，用于修改特定 token 出现的概率
+	// 接受一个 map，将 token ID（字符串）映射到 -100 到 100 之间的偏置值
+	// -100 表示禁止，100 表示独占
+	LogitBias map[string]int
+
+	// ServiceTier 设置处理请求的服务层级
+	// "auto": 使用项目设置中的服务层级（默认）
+	// "default": 标准定价和性能
+	// "flex" 或 "priority": 相应的服务层级
+	ServiceTier *string
+
+	// User 设置最终用户的唯一标识符
+	// 用于监控和检测滥用，以及提升缓存命中率
+	// 注意: OpenAI 推荐使用 PromptCacheKey 代替此字段
+	User *string
+
 	// === 流式选项 ===
 
 	// StreamOptions 设置流式响应的选项
@@ -124,86 +140,73 @@ type RequestConfig struct {
 	StreamingReasoningFunc func(ctx context.Context, reasoningChunk, chunk []byte) error
 }
 
+// clonePtr 辅助函数：克隆指针类型的值
+func clonePtr[T any](v *T) *T {
+	if v == nil {
+		return nil
+	}
+	c := *v
+	return &c
+}
+
+// cloneSlice 辅助函数：克隆切片
+func cloneSlice[T any](s []T) []T {
+	if s == nil {
+		return nil
+	}
+	return append([]T(nil), s...)
+}
+
+// cloneMap 辅助函数：使用 maps.Copy 克隆 map
+func cloneMap[K comparable, V any](m map[K]V) map[K]V {
+	if m == nil {
+		return nil
+	}
+	out := make(map[K]V, len(m))
+	maps.Copy(out, m)
+	return out
+}
+
 // clone 创建 RequestConfig 的深拷贝，用于避免修改原始配置
 func (c RequestConfig) clone() RequestConfig {
 	out := c
 
-	if c.Stop != nil {
-		cp := append([]string(nil), (*c.Stop)...)
-		out.Stop = &cp
-	}
+	// 克隆指针类型
+	out.Stop = func() *[]string {
+		if c.Stop == nil {
+			return nil
+		}
+		cp := cloneSlice(*c.Stop)
+		return &cp
+	}()
 
-	if c.FrequencyPenalty != nil {
-		v := *c.FrequencyPenalty
-		out.FrequencyPenalty = &v
-	}
-	if c.PresencePenalty != nil {
-		v := *c.PresencePenalty
-		out.PresencePenalty = &v
-	}
-	if c.Logprobs != nil {
-		v := *c.Logprobs
-		out.Logprobs = &v
-	}
-	if c.TopLogprobs != nil {
-		v := *c.TopLogprobs
-		out.TopLogprobs = &v
-	}
+	out.FrequencyPenalty = clonePtr(c.FrequencyPenalty)
+	out.PresencePenalty = clonePtr(c.PresencePenalty)
+	out.Logprobs = clonePtr(c.Logprobs)
+	out.TopLogprobs = clonePtr(c.TopLogprobs)
+	out.ToolChoice = clonePtr(c.ToolChoice)
+	out.ResponseFormat = clonePtr(c.ResponseFormat)
+	out.MaxTokens = clonePtr(c.MaxTokens)
+	out.MaxCompletionTokens = clonePtr(c.MaxCompletionTokens)
+	out.ParallelToolCalls = clonePtr(c.ParallelToolCalls)
+	out.N = clonePtr(c.N)
+	out.Seed = clonePtr(c.Seed)
+	out.StreamOptions = clonePtr(c.StreamOptions)
+	out.ServiceTier = clonePtr(c.ServiceTier)
+	out.User = clonePtr(c.User)
+	out.Timeout = clonePtr(c.Timeout)
 
-	if c.Tools != nil {
-		out.Tools = append([]schema.Tool(nil), c.Tools...)
-	}
-	if c.ToolChoice != nil {
-		v := *c.ToolChoice
-		out.ToolChoice = &v
-	}
-	if c.ResponseFormat != nil {
-		v := *c.ResponseFormat
-		out.ResponseFormat = &v
-	}
+	// 克隆切片类型
+	out.Tools = cloneSlice(c.Tools)
 
-	if c.MaxTokens != nil {
-		v := *c.MaxTokens
-		out.MaxTokens = &v
-	}
-	if c.MaxCompletionTokens != nil {
-		v := *c.MaxCompletionTokens
-		out.MaxCompletionTokens = &v
-	}
-	if c.ParallelToolCalls != nil {
-		v := *c.ParallelToolCalls
-		out.ParallelToolCalls = &v
-	}
-	if c.N != nil {
-		v := *c.N
-		out.N = &v
-	}
-	if c.Seed != nil {
-		v := *c.Seed
-		out.Seed = &v
-	}
-	if c.StreamOptions != nil {
-		v := *c.StreamOptions
-		out.StreamOptions = &v
-	}
+	// 克隆 map 类型
+	out.Metadata = cloneMap(c.Metadata)
+	out.LogitBias = cloneMap(c.LogitBias)
+	out.ExtraFields = cloneMap(c.ExtraFields)
 
-	if c.Metadata != nil {
-		out.Metadata = make(map[string]string, len(c.Metadata))
-		maps.Copy(out.Metadata, c.Metadata)
-	}
-
-	if c.Timeout != nil {
-		d := *c.Timeout
-		out.Timeout = &d
-	}
-
+	// Headers 有自己的 Clone 方法
 	if c.Headers != nil {
 		out.Headers = c.Headers.Clone()
-	}
-
-	if c.ExtraFields != nil {
-		out.ExtraFields = make(map[string]any, len(c.ExtraFields))
-		maps.Copy(out.ExtraFields, c.ExtraFields)
 	}
 
 	return out
@@ -366,6 +369,35 @@ func WithMetadata(metadata map[string]string) RequestOption {
 			c.Metadata = make(map[string]string, len(metadata))
 		}
 		maps.Copy(c.Metadata, metadata)
+	}
+}
+
+// WithLogitBias 设置 token 偏置
+// 用于修改特定 token 出现的概率，值范围为 -100 到 100
+func WithLogitBias(bias map[string]int) RequestOption {
+	return func(c *RequestConfig) {
+		if len(bias) == 0 {
+			return
+		}
+		if c.LogitBias == nil {
+			c.LogitBias = make(map[string]int, len(bias))
+		}
+		maps.Copy(c.LogitBias, bias)
+	}
+}
+
+// WithServiceTier 设置处理请求的服务层级
+func WithServiceTier(tier string) RequestOption {
+	return func(c *RequestConfig) {
+		c.ServiceTier = &tier
+	}
+}
+
+// WithUser 设置最终用户的唯一标识符
+// 用于监控和检测滥用，以及提升缓存命中率
+func WithUser(user string) RequestOption {
+	return func(c *RequestConfig) {
+		c.User = &user
 	}
 }
 

@@ -4,10 +4,10 @@ import "github.com/lgc202/go-kit/llm"
 
 // 扩展字段键，用于 llm.WithExtraField()
 const (
-	extFormat     = "format"
-	extKeepAlive  = "keep_alive"
-	extOptions    = "options"
-	extThink      = "think"
+	extFormat    = "format"
+	extKeepAlive = "keep_alive"
+	extOptions   = "options"
+	extThink     = "think"
 )
 
 // WithFormat 设置结构化输出格式

@@ -7,16 +7,16 @@ import (
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
-// Adapter customizes OpenAI-compatible ChatCompletions dialect differences.
+// Adapter 定制 OpenAI 兼容的 ChatCompletions 方言差异
 //
-// Most providers can use NoopAdapter; only providers with request/response
-// divergences (e.g. extra request fields) need a custom Adapter.
+// 大多数提供商可以使用 NoopAdapter，只有请求/响应存在差异的
+// 提供商（如额外的请求字段）需要自定义 Adapter
 type Adapter interface {
 	ApplyRequestExtensions(req map[string]any, cfg llm.RequestConfig) error
 	ParseError(provider string, statusCode int, body []byte) error
 
-	// Optional hooks. The compat core already extracts common fields (content,
-	// reasoning_content, tool_calls). Providers can enrich further if needed.
+	// 可选钩子，兼容核心已经提取了通用字段（content、reasoning_content、tool_calls）
+	// 提供商可以根据需要进一步丰富这些字段
 	EnrichResponseMessage(dst *schema.Message, rawMessage json.RawMessage) error
 	EnrichStreamDelta(dst *schema.StreamEvent, rawDelta json.RawMessage) error
 }

@@ -2,10 +2,9 @@ package llm
 
 import "fmt"
 
-// UnsupportedOptionError indicates a request option or schema feature isn't
-// supported by a given provider/client implementation.
+// UnsupportedOptionError 表示请求选项或 schema 功能不被给定的提供商/客户端实现支持
 //
-// Use errors.As(err, *UnsupportedOptionError) to branch on this.
+// 使用 errors.As(err, *UnsupportedOptionError) 来判断此错误
 type UnsupportedOptionError struct {
 	Provider Provider
 	Option   string
@@ -34,11 +33,11 @@ func (e *UnsupportedOptionError) Error() string {
 	}
 }
 
-// APIError represents a provider HTTP error with parsed fields when available.
+// APIError 表示提供商 HTTP 错误，尽可能包含解析后的字段
 //
-// Providers typically return a JSON body with a message, type, and code. When
-// those fields exist, openai_compat returns *APIError so callers can switch on
-// StatusCode/Code/Type.
+// 提供商通常返回包含 message、type 和 code 的 JSON 响应体。
+// 当这些字段存在时，openai_compat 会返回 *APIError，以便调用者可以基于
+// StatusCode/Code/Type 进行判断
 type APIError struct {
 	Provider   string
 	StatusCode int
@@ -47,7 +46,7 @@ type APIError struct {
 	Type    string
 	Code    string
 
-	// Body is the raw response body for non-JSON or unrecognized formats.
+	// Body 是非 JSON 或无法识别格式时的原始响应体
 	Body []byte
 }
 

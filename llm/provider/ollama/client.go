@@ -10,7 +10,7 @@ import (
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
-// Ollama's OpenAI-compatible endpoint (typically local)
+// Ollama 的 OpenAI 兼容端点（通常为本地地址）
 const DefaultBaseURL = "http://localhost:11434/v1"
 
 type Config struct {
@@ -18,10 +18,10 @@ type Config struct {
 	APIKey     string
 	HTTPClient *http.Client
 
-	// DefaultHeaders are applied first, then overridden by request-level headers
+	// DefaultHeaders 首先应用，然后被请求级别的 headers 覆盖
 	DefaultHeaders http.Header
 
-	// DefaultRequest provides client-level defaults for request options
+	// DefaultRequest 提供客户端级别的默认请求选项
 	DefaultRequest llm.RequestConfig
 }
 
