@@ -37,7 +37,7 @@ func TestDeepSeek_DefaultPathAndProviderName(t *testing.T) {
 
 	_, err = p.Chat(context.Background(), llm.ChatRequest{
 		Model:    "deepseek-chat",
-		Messages: []llm.Message{{Role: llm.RoleUser, Content: "hi"}},
+		Messages: []llm.Message{llm.User("hi")},
 	})
 	if err == nil {
 		t.Fatalf("expected error")
@@ -74,7 +74,7 @@ func TestDeepSeek_ThinkingDisabled(t *testing.T) {
 	}
 
 	client := llm.New(p, WithThinkingDisabled())
-	resp, err := client.Chat(context.Background(), []llm.Message{{Role: llm.RoleUser, Content: "hi"}}, llm.WithModel("deepseek-chat"))
+	resp, err := client.Chat(context.Background(), []llm.Message{llm.User("hi")}, llm.WithModel("deepseek-chat"))
 	if err != nil {
 		t.Fatalf("Chat() err=%v", err)
 	}

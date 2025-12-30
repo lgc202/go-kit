@@ -18,15 +18,18 @@ type stream struct {
 	closed bool
 	done   bool
 
-	finishReason llm.FinishReason
-	pending      []llm.StreamEvent
+	includeRaw bool
+
+	finishReasons map[int]llm.FinishReason
+	pending       []llm.StreamEvent
 }
 
-func newStream(provider string, resp *http.Response) *stream {
+func newStream(provider string, resp *http.Response, includeRaw bool) *stream {
 	return &stream{
-		provider: provider,
-		resp:     resp,
-		dec:      newSSEDecoder(resp.Body),
+		provider:   provider,
+		resp:       resp,
+		dec:        newSSEDecoder(resp.Body),
+		includeRaw: includeRaw,
 	}
 }
 
@@ -59,7 +62,7 @@ func (s *stream) Recv() (llm.StreamEvent, error) {
 		if errors.Is(err, io.EOF) {
 			// Some providers close the connection without sending [DONE].
 			s.done = true
-			return llm.StreamEvent{Kind: llm.StreamEventDone, FinishReason: s.finishReason}, nil
+			return llm.StreamEvent{Kind: llm.StreamEventDone, ChoiceIndex: -1}, nil
 		}
 		return llm.StreamEvent{}, err
 	}
@@ -67,7 +70,11 @@ func (s *stream) Recv() (llm.StreamEvent, error) {
 	data = bytes.TrimSpace(data)
 	if bytes.Equal(data, []byte("[DONE]")) {
 		s.done = true
-		return llm.StreamEvent{Kind: llm.StreamEventDone, FinishReason: s.finishReason, RawJSON: append([]byte(nil), data...)}, nil
+		ev := llm.StreamEvent{Kind: llm.StreamEventDone, ChoiceIndex: -1}
+		if s.includeRaw {
+			ev.RawJSON = append([]byte(nil), data...)
+		}
+		return ev, nil
 	}
 
 	var chunk chatCompletionChunk
@@ -79,60 +86,124 @@ func (s *stream) Recv() (llm.StreamEvent, error) {
 	}
 
 	if chunk.Usage != nil {
-		s.pending = append(s.pending, llm.StreamEvent{
-			Kind: llm.StreamEventUsage,
+		var details *llm.UsageDetails
+		d := llm.UsageDetails{
+			PromptCacheHitTokens:  chunk.Usage.intField("prompt_cache_hit_tokens"),
+			PromptCacheMissTokens: chunk.Usage.intField("prompt_cache_miss_tokens"),
+		}
+		cachedTokens := chunk.Usage.intField("cached_tokens")
+		if d.PromptCacheHitTokens == 0 && cachedTokens != 0 {
+			d.PromptCacheHitTokens = cachedTokens
+		}
+		d.ReasoningTokens = chunk.Usage.intFieldInObject("completion_tokens_details", "reasoning_tokens")
+		if d.PromptCacheHitTokens != 0 || d.PromptCacheMissTokens != 0 || d.ReasoningTokens != 0 {
+			details = &d
+		}
+		ev := llm.StreamEvent{
+			Kind:        llm.StreamEventUsage,
+			ChoiceIndex: -1,
 			Usage: &llm.Usage{
 				PromptTokens:     chunk.Usage.PromptTokens,
 				CompletionTokens: chunk.Usage.CompletionTokens,
 				TotalTokens:      chunk.Usage.TotalTokens,
+				Details:          details,
 			},
-			RawJSON: append([]byte(nil), data...),
-		})
+		}
+		if s.includeRaw {
+			ev.RawJSON = append([]byte(nil), data...)
+		}
+		s.pending = append(s.pending, ev)
 	}
 
 	for _, choice := range chunk.Choices {
+		choiceIdx := choice.Index
 		if choice.FinishReason != "" {
-			s.finishReason = mapFinishReason(choice.FinishReason)
+			if s.finishReasons == nil {
+				s.finishReasons = make(map[int]llm.FinishReason)
+			}
+			s.finishReasons[choiceIdx] = mapFinishReason(choice.FinishReason)
+			ev := llm.StreamEvent{
+				Kind:         llm.StreamEventChoiceDone,
+				ChoiceIndex:  choiceIdx,
+				FinishReason: s.finishReasons[choiceIdx],
+			}
+			if s.includeRaw {
+				ev.RawJSON = append([]byte(nil), data...)
+			}
+			s.pending = append(s.pending, ev)
 		}
 		if choice.Delta.ReasoningContent != "" {
-			s.pending = append(s.pending, llm.StreamEvent{
-				Kind:           llm.StreamEventReasoningDelta,
-				ReasoningDelta: choice.Delta.ReasoningContent,
-				RawJSON:        append([]byte(nil), data...),
-			})
+			ev := llm.StreamEvent{
+				Kind:        llm.StreamEventPartDelta,
+				ChoiceIndex: choiceIdx,
+				PartDelta: &llm.PartDelta{
+					Type:      llm.ContentPartReasoning,
+					TextDelta: choice.Delta.ReasoningContent,
+				},
+			}
+			if s.includeRaw {
+				ev.RawJSON = append([]byte(nil), data...)
+			}
+			s.pending = append(s.pending, ev)
 		}
 		if thinking := anyString(choice.Delta.Thinking); thinking != "" {
-			s.pending = append(s.pending, llm.StreamEvent{
-				Kind:           llm.StreamEventReasoningDelta,
-				ReasoningDelta: thinking,
-				RawJSON:        append([]byte(nil), data...),
-			})
+			ev := llm.StreamEvent{
+				Kind:        llm.StreamEventPartDelta,
+				ChoiceIndex: choiceIdx,
+				PartDelta: &llm.PartDelta{
+					Type:      llm.ContentPartReasoning,
+					TextDelta: thinking,
+				},
+			}
+			if s.includeRaw {
+				ev.RawJSON = append([]byte(nil), data...)
+			}
+			s.pending = append(s.pending, ev)
 		}
-		if text := contentText(choice.Delta.Content); text != "" {
-			s.pending = append(s.pending, llm.StreamEvent{
-				Kind:      llm.StreamEventTextDelta,
-				TextDelta: text,
-				RawJSON:   append([]byte(nil), data...),
-			})
+		text, reasoning := splitContent(choice.Delta.Content)
+		if text != "" {
+			ev := llm.StreamEvent{
+				Kind:        llm.StreamEventPartDelta,
+				ChoiceIndex: choiceIdx,
+				PartDelta: &llm.PartDelta{
+					Type:      llm.ContentPartText,
+					TextDelta: text,
+				},
+			}
+			if s.includeRaw {
+				ev.RawJSON = append([]byte(nil), data...)
+			}
+			s.pending = append(s.pending, ev)
 		}
-		if _, reasoning := splitContent(choice.Delta.Content); reasoning != "" {
-			s.pending = append(s.pending, llm.StreamEvent{
-				Kind:           llm.StreamEventReasoningDelta,
-				ReasoningDelta: reasoning,
-				RawJSON:        append([]byte(nil), data...),
-			})
+		if reasoning != "" {
+			ev := llm.StreamEvent{
+				Kind:        llm.StreamEventPartDelta,
+				ChoiceIndex: choiceIdx,
+				PartDelta: &llm.PartDelta{
+					Type:      llm.ContentPartReasoning,
+					TextDelta: reasoning,
+				},
+			}
+			if s.includeRaw {
+				ev.RawJSON = append([]byte(nil), data...)
+			}
+			s.pending = append(s.pending, ev)
 		}
 		for _, tc := range choice.Delta.ToolCalls {
-			s.pending = append(s.pending, llm.StreamEvent{
-				Kind: llm.StreamEventToolCallDelta,
+			ev := llm.StreamEvent{
+				Kind:        llm.StreamEventToolCallDelta,
+				ChoiceIndex: choiceIdx,
 				ToolCallDelta: &llm.ToolCallDelta{
 					Index:          tc.Index,
 					ID:             tc.ID,
 					Name:           tc.Function.Name,
 					ArgumentsDelta: tc.Function.Arguments,
 				},
-				RawJSON: append([]byte(nil), data...),
-			})
+			}
+			if s.includeRaw {
+				ev.RawJSON = append([]byte(nil), data...)
+			}
+			s.pending = append(s.pending, ev)
 		}
 	}
 

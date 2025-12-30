@@ -45,7 +45,7 @@ func (c *Client) Provider() Provider {
 }
 
 func (c *Client) buildRequest(messages []Message, opts ...RequestOption) ChatRequest {
-	req := ChatRequest{Messages: append([]Message(nil), messages...), Extra: map[string]any{}}
+	req := ChatRequest{Messages: cloneMessages(messages), Extra: map[string]any{}}
 	for _, opt := range c.defaultOpts {
 		if opt != nil {
 			opt(&req)

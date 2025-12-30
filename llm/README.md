@@ -23,20 +23,22 @@ Provider-agnostic Go `llm.Client` with:
 provider, _ := openai.New(os.Getenv("OPENAI_API_KEY"), openai.WithDefaultModel("gpt-4o-mini"))
 client := llm.New(provider, llm.WithTemperature(0.7))
 
-resp, _ := client.Chat(ctx, []llm.Message{{Role: llm.RoleUser, Content: "Hello"}})
+resp, _ := client.Chat(ctx, []llm.Message{llm.User("Hello")})
 fmt.Println(resp.FirstText())
 ```
 
 ## Streaming
 
 ```go
-stream, _ := client.ChatStream(ctx, []llm.Message{{Role: llm.RoleUser, Content: "Explain SSE."}})
+stream, _ := client.ChatStream(ctx, []llm.Message{llm.User("Explain SSE.")})
 defer stream.Close()
 
 for {
   ev, err := stream.Recv()
   if err != nil { break }
-  if ev.Kind == llm.StreamEventTextDelta { fmt.Print(ev.TextDelta) }
+  if ev.Kind == llm.StreamEventPartDelta && ev.PartDelta != nil && ev.PartDelta.Type == llm.ContentPartText {
+    fmt.Print(ev.PartDelta.TextDelta)
+  }
   if ev.Done() { break }
 }
 ```
@@ -78,8 +80,8 @@ When the assistant returns `Message.ToolCalls`, execute them and send results ba
 
 Some providers return a separate reasoning channel (e.g. DeepSeek `reasoning_content` / `thinking`).
 
-- Non-streaming: mapped to `llm.Message.Reasoning`
-- Streaming: emitted as `llm.StreamEventReasoningDelta` and accumulated into `llm.Message.Reasoning`
+- Non-streaming: mapped to `llm.Message.Parts` as `llm.ContentPartReasoning` (use `msg.Reasoning()` helper)
+- Streaming: emitted as `llm.StreamEventPartDelta` with `PartDelta.Type == llm.ContentPartReasoning`
 
 DeepSeek also supports controlling thinking in the request:
 
@@ -129,3 +131,10 @@ if e, ok := llm.AsLLMError(err); ok {
   fmt.Println(e.Kind, e.HTTPStatus, e.Retryable)
 }
 ```
+
+## Raw JSON (debug)
+
+By default, providers avoid copying raw JSON payloads for performance.
+
+- Non-streaming raw response: enable via `openai_compat.WithIncludeRawResponse(true)` (populates `llm.ChatResponse.RawJSON`).
+- Streaming raw chunks: enable via `openai_compat.WithIncludeRawStreamEvents(true)` (populates `llm.StreamEvent.RawJSON`).

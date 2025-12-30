@@ -33,7 +33,7 @@ func TestKimi_DefaultPathAndProviderName(t *testing.T) {
 	}
 
 	client := llm.New(p)
-	_, err = client.Chat(context.Background(), []llm.Message{{Role: llm.RoleUser, Content: "hi"}}, llm.WithModel("moonshot-v1-8k"))
+	_, err = client.Chat(context.Background(), []llm.Message{llm.User("hi")}, llm.WithModel("moonshot-v1-8k"))
 	if err == nil {
 		t.Fatalf("expected error")
 	}

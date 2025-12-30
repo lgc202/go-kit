@@ -2,6 +2,9 @@ package llm
 
 import (
 	"encoding/json"
+	"net/http"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -23,6 +26,41 @@ const (
 	FinishReasonUnknown   FinishReason = "unknown"
 )
 
+type ContentPartType string
+
+const (
+	ContentPartText      ContentPartType = "text"
+	ContentPartReasoning ContentPartType = "reasoning"
+	ContentPartJSON      ContentPartType = "json"
+	ContentPartBinary    ContentPartType = "binary"
+)
+
+// ContentPart is a provider-agnostic "message content segment".
+//
+// Many providers represent message content as an array of parts (text, image, etc.).
+// Keeping this as a first-class concept makes it easier to map to/from different APIs.
+type ContentPart struct {
+	Type ContentPartType `json:"type"`
+
+	// Text is used by ContentPartText and ContentPartReasoning.
+	Text string `json:"text,omitempty"`
+
+	// JSON is an optional structured payload (provider-specific).
+	JSON json.RawMessage `json:"json,omitempty"`
+
+	// Data/MIME are for binary payloads (e.g. images/audio), if a provider supports them.
+	Data []byte `json:"data,omitempty"`
+	MIME string `json:"mime,omitempty"`
+}
+
+func TextPart(text string) ContentPart { return ContentPart{Type: ContentPartText, Text: text} }
+func ReasoningPart(text string) ContentPart {
+	return ContentPart{Type: ContentPartReasoning, Text: text}
+}
+func JSONPart(raw json.RawMessage) ContentPart {
+	return ContentPart{Type: ContentPartJSON, JSON: append([]byte(nil), raw...)}
+}
+
 // Message is a canonical chat message.
 //
 // For tool results, use RoleTool with ToolCallID set.
@@ -30,20 +68,64 @@ const (
 type Message struct {
 	Role Role
 
-	// Content is text (and for RoleTool: tool output).
-	Content string
-
 	// Name is an optional sender name supported by some providers.
 	Name string
 
-	// Reasoning is provider-specific "thinking"/"reasoning" content.
-	//
-	// Some providers (e.g. DeepSeek) return it as `reasoning_content` or `thinking`.
-	// It may be empty even when Content is present.
-	Reasoning string
+	Parts []ContentPart
 
 	ToolCallID string
 	ToolCalls  []ToolCall
+}
+
+func System(text string) Message {
+	return Message{Role: RoleSystem, Parts: []ContentPart{TextPart(text)}}
+}
+func User(text string) Message { return Message{Role: RoleUser, Parts: []ContentPart{TextPart(text)}} }
+func Assistant(text string) Message {
+	return Message{Role: RoleAssistant, Parts: []ContentPart{TextPart(text)}}
+}
+func ToolResult(toolCallID string, text string) Message {
+	return Message{Role: RoleTool, ToolCallID: toolCallID, Parts: []ContentPart{TextPart(text)}}
+}
+
+func (m Message) Clone() Message {
+	out := m
+	if m.Parts != nil {
+		out.Parts = make([]ContentPart, len(m.Parts))
+		copy(out.Parts, m.Parts)
+		for i := range out.Parts {
+			out.Parts[i].JSON = append([]byte(nil), out.Parts[i].JSON...)
+			out.Parts[i].Data = append([]byte(nil), out.Parts[i].Data...)
+		}
+	}
+	if m.ToolCalls != nil {
+		out.ToolCalls = make([]ToolCall, len(m.ToolCalls))
+		copy(out.ToolCalls, m.ToolCalls)
+		for i := range out.ToolCalls {
+			out.ToolCalls[i].Arguments = append([]byte(nil), out.ToolCalls[i].Arguments...)
+		}
+	}
+	return out
+}
+
+func (m Message) Text() string {
+	var b strings.Builder
+	for _, p := range m.Parts {
+		if p.Type == ContentPartText {
+			b.WriteString(p.Text)
+		}
+	}
+	return b.String()
+}
+
+func (m Message) Reasoning() string {
+	var b strings.Builder
+	for _, p := range m.Parts {
+		if p.Type == ContentPartReasoning {
+			b.WriteString(p.Text)
+		}
+	}
+	return b.String()
 }
 
 type ToolDefinition struct {
@@ -93,6 +175,28 @@ type Usage struct {
 	PromptTokens     int
 	CompletionTokens int
 	TotalTokens      int
+
+	// Details contains optional provider-specific usage breakdown fields.
+	// Providers should populate this only when they have meaningful extra data.
+	Details *UsageDetails
+}
+
+type UsageDetails struct {
+	// PromptCacheHitTokens/PromptCacheMissTokens are emitted by some providers (e.g. DeepSeek)
+	// to describe prompt caching behavior.
+	PromptCacheHitTokens  int
+	PromptCacheMissTokens int
+
+	// ReasoningTokens is typically nested under completion token details for some providers.
+	ReasoningTokens int
+}
+
+type TransportOptions struct {
+	// Headers contains per-request header overrides/additions.
+	//
+	// This is an escape hatch for providers that require request-scoped headers
+	// (e.g. vendor routing, beta flags). Providers may ignore unsupported headers.
+	Headers http.Header
 }
 
 type ChatRequest struct {
@@ -118,6 +222,8 @@ type ChatRequest struct {
 	Tools      []ToolDefinition
 	ToolChoice *ToolChoice
 
+	Transport *TransportOptions
+
 	// Extra carries provider-specific JSON fields. Keys should be top-level fields.
 	// Values should be JSON-marshalable.
 	Extra map[string]any
@@ -126,6 +232,9 @@ type ChatRequest struct {
 func (r ChatRequest) Clone() ChatRequest {
 	out := r
 	out.Messages = append([]Message(nil), r.Messages...)
+	for i := range out.Messages {
+		out.Messages[i] = out.Messages[i].Clone()
+	}
 	if r.Tools != nil {
 		out.Tools = append([]ToolDefinition(nil), r.Tools...)
 	}
@@ -143,6 +252,11 @@ func (r ChatRequest) Clone() ChatRequest {
 	if r.StreamOptions != nil {
 		v := *r.StreamOptions
 		out.StreamOptions = &v
+	}
+	if r.Transport != nil {
+		v := *r.Transport
+		v.Headers = r.Transport.Headers.Clone()
+		out.Transport = &v
 	}
 	if r.Extra != nil {
 		out.Extra = make(map[string]any, len(r.Extra))
@@ -201,5 +315,17 @@ func (r ChatResponse) FirstText() string {
 	if len(r.Choices) == 0 {
 		return ""
 	}
-	return r.Choices[0].Message.Content
+	return r.Choices[0].Message.Text()
+}
+
+func (r ChatResponse) ChoiceIndexes() []int {
+	if len(r.Choices) == 0 {
+		return nil
+	}
+	idxs := make([]int, 0, len(r.Choices))
+	for _, c := range r.Choices {
+		idxs = append(idxs, c.Index)
+	}
+	sort.Ints(idxs)
+	return idxs
 }

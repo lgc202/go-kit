@@ -22,7 +22,7 @@ func main() {
 	}
 	client := llm.New(provider)
 
-	stream, err := client.ChatStream(context.Background(), []llm.Message{{Role: llm.RoleUser, Content: "Say hello."}})
+	stream, err := client.ChatStream(context.Background(), []llm.Message{llm.User("Say hello.")})
 	if err != nil {
 		panic(err)
 	}
@@ -33,8 +33,8 @@ func main() {
 		if err != nil {
 			break
 		}
-		if ev.Kind == llm.StreamEventTextDelta {
-			fmt.Print(ev.TextDelta)
+		if ev.Kind == llm.StreamEventPartDelta && ev.PartDelta != nil && ev.PartDelta.Type == llm.ContentPartText {
+			fmt.Print(ev.PartDelta.TextDelta)
 		}
 		if ev.Done() {
 			fmt.Println()

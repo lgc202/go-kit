@@ -2,25 +2,34 @@ package llm
 
 // RequestOption mutates a ChatRequest.
 //
-// Use with ChatRequest.With(...) or in your own builder.
+// Prefer passing options directly to Client.Chat/ChatStream; use BuildChatRequest
+// only when you need to call Client.ChatRequest/ChatStreamRequest.
 type RequestOption func(*ChatRequest)
 
-func NewChatRequest(model string, messages ...Message) ChatRequest {
+func newChatRequest(model string, messages ...Message) ChatRequest {
 	return ChatRequest{
 		Model:    model,
-		Messages: append([]Message(nil), messages...),
+		Messages: cloneMessages(messages),
 		Extra:    map[string]any{},
 	}
 }
 
-func (r ChatRequest) With(opts ...RequestOption) ChatRequest {
-	out := r.Clone()
+func applyOptions(req *ChatRequest, opts ...RequestOption) {
+	if req == nil {
+		return
+	}
 	for _, opt := range opts {
 		if opt != nil {
-			opt(&out)
+			opt(req)
 		}
 	}
-	return out
+}
+
+// BuildChatRequest creates a request from model + messages and applies opts.
+func BuildChatRequest(model string, messages []Message, opts ...RequestOption) ChatRequest {
+	req := newChatRequest(model, messages...)
+	applyOptions(&req, opts...)
+	return req
 }
 
 func WithModel(model string) RequestOption {
@@ -102,4 +111,27 @@ func WithExtra(key string, value any) RequestOption {
 		}
 		r.Extra[key] = value
 	}
+}
+
+func WithHeader(key, value string) RequestOption {
+	return func(r *ChatRequest) {
+		if r.Transport == nil {
+			r.Transport = &TransportOptions{}
+		}
+		if r.Transport.Headers == nil {
+			r.Transport.Headers = make(map[string][]string)
+		}
+		r.Transport.Headers.Set(key, value)
+	}
+}
+
+func cloneMessages(messages []Message) []Message {
+	if messages == nil {
+		return nil
+	}
+	out := make([]Message, len(messages))
+	for i := range messages {
+		out[i] = messages[i].Clone()
+	}
+	return out
 }

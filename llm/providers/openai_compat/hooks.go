@@ -15,6 +15,11 @@ type Hooks struct {
 	// Implementations should only touch req.Extra and similar optional fields.
 	BeforeMap func(req *llm.ChatRequest)
 
+	// MapMessageContent allows overriding how a canonical message maps to wire "content".
+	//
+	// Return (nil, nil) to fall back to default mapping.
+	MapMessageContent func(msg llm.Message) (any, error)
+
 	// PatchRequest allows mutating the final JSON request map.
 	// This is the primary escape hatch for "OpenAI-compatible" providers.
 	PatchRequest func(m map[string]any)
@@ -25,6 +30,7 @@ func WithHooks(h Hooks) Option {
 		prev := p.hooks
 		p.hooks.PatchHeaders = chainHeaders(prev.PatchHeaders, h.PatchHeaders)
 		p.hooks.BeforeMap = chainBeforeMap(prev.BeforeMap, h.BeforeMap)
+		p.hooks.MapMessageContent = chainMapMessageContent(prev.MapMessageContent, h.MapMessageContent)
 		p.hooks.PatchRequest = chainPatchRequest(prev.PatchRequest, h.PatchRequest)
 		return nil
 	}
@@ -34,7 +40,7 @@ func WithHooks(h Hooks) Option {
 //
 // This lets you reuse the same llm.RequestOption both:
 // - as a client-level default (via provider.New(..., WithDefaultRequest(...)))
-// - per request (via req.With(...))
+// - per request (via llm.BuildChatRequest(...))
 func WithDefaultRequest(opts ...llm.RequestOption) Option {
 	return WithHooks(Hooks{
 		BeforeMap: func(req *llm.ChatRequest) {
@@ -83,5 +89,24 @@ func chainPatchRequest(a, b func(map[string]any)) func(map[string]any) {
 	return func(m map[string]any) {
 		a(m)
 		b(m)
+	}
+}
+
+func chainMapMessageContent(a, b func(llm.Message) (any, error)) func(llm.Message) (any, error) {
+	if a == nil {
+		return b
+	}
+	if b == nil {
+		return a
+	}
+	return func(msg llm.Message) (any, error) {
+		v, err := a(msg)
+		if err != nil {
+			return nil, err
+		}
+		if v != nil {
+			return v, nil
+		}
+		return b(msg)
 	}
 }

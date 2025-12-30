@@ -14,11 +14,25 @@ func (p *Provider) mapResponse(r chatCompletionResponse) llm.ChatResponse {
 		Choices: make([]llm.ChatChoice, 0, len(r.Choices)),
 	}
 	if r.Usage != nil {
-		out.Usage = &llm.Usage{
+		u := &llm.Usage{
 			PromptTokens:     r.Usage.PromptTokens,
 			CompletionTokens: r.Usage.CompletionTokens,
 			TotalTokens:      r.Usage.TotalTokens,
 		}
+		d := llm.UsageDetails{
+			PromptCacheHitTokens:  r.Usage.intField("prompt_cache_hit_tokens"),
+			PromptCacheMissTokens: r.Usage.intField("prompt_cache_miss_tokens"),
+		}
+		cachedTokens := r.Usage.intField("cached_tokens")
+		if d.PromptCacheHitTokens == 0 && cachedTokens != 0 {
+			// Some providers only report a single cache number.
+			d.PromptCacheHitTokens = cachedTokens
+		}
+		d.ReasoningTokens = r.Usage.intFieldInObject("completion_tokens_details", "reasoning_tokens")
+		if d.PromptCacheHitTokens != 0 || d.PromptCacheMissTokens != 0 || d.ReasoningTokens != 0 {
+			u.Details = &d
+		}
+		out.Usage = u
 	}
 
 	for _, c := range r.Choices {
@@ -26,8 +40,20 @@ func (p *Provider) mapResponse(r chatCompletionResponse) llm.ChatResponse {
 		if c.Message.Role != "" {
 			msg.Role = llm.Role(c.Message.Role)
 		}
-		msg.Content, msg.Reasoning = splitContent(c.Message.Content)
-		msg.Reasoning = firstNonEmpty(c.Message.ReasoningContent, anyString(c.Message.Thinking), msg.Reasoning)
+		text, reasoningFromContent := splitContent(c.Message.Content)
+		reasoning := reasoningFromContent
+		if c.Message.ReasoningContent != "" {
+			reasoning = c.Message.ReasoningContent + reasoning
+		}
+		if thinking := anyString(c.Message.Thinking); thinking != "" {
+			reasoning = thinking + reasoning
+		}
+		if text != "" {
+			msg.Parts = append(msg.Parts, llm.TextPart(text))
+		}
+		if reasoning != "" {
+			msg.Parts = append(msg.Parts, llm.ReasoningPart(reasoning))
+		}
 		msg.Name = c.Message.Name
 		if len(c.Message.ToolCalls) > 0 {
 			msg.ToolCalls = make([]llm.ToolCall, 0, len(c.Message.ToolCalls))

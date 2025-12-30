@@ -43,7 +43,7 @@ func TestRequestMapping_CommonFields(t *testing.T) {
 
 	_, err = p.Chat(context.Background(), llm.ChatRequest{
 		Model:            "m",
-		Messages:         []llm.Message{{Role: llm.RoleUser, Content: "hi"}},
+		Messages:         []llm.Message{llm.User("hi")},
 		Temperature:      &temp,
 		MaxTokens:        &maxTokens,
 		Seed:             &seed,
@@ -117,7 +117,7 @@ func TestRequestMapping_ExplicitNullViaExtra(t *testing.T) {
 
 	_, err = p.Chat(context.Background(), llm.ChatRequest{
 		Model:    "m",
-		Messages: []llm.Message{{Role: llm.RoleUser, Content: "hi"}},
+		Messages: []llm.Message{llm.User("hi")},
 		Extra: map[string]any{
 			"stop":           nil,
 			"stream_options": nil,

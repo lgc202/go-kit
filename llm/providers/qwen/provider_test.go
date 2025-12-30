@@ -34,7 +34,7 @@ func TestQwen_DefaultPathAndProviderName(t *testing.T) {
 
 	_, err = p.Chat(context.Background(), llm.ChatRequest{
 		Model:    "qwen-plus",
-		Messages: []llm.Message{{Role: llm.RoleUser, Content: "hi"}},
+		Messages: []llm.Message{llm.User("hi")},
 	})
 	if err == nil {
 		t.Fatalf("expected error")

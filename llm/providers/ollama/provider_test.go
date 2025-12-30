@@ -33,7 +33,7 @@ func TestOllama_DefaultPathAndProviderName(t *testing.T) {
 	}
 
 	client := llm.New(p)
-	_, err = client.Chat(context.Background(), []llm.Message{{Role: llm.RoleUser, Content: "hi"}}, llm.WithModel("llama3"))
+	_, err = client.Chat(context.Background(), []llm.Message{llm.User("hi")}, llm.WithModel("llama3"))
 	if err == nil {
 		t.Fatalf("expected error")
 	}

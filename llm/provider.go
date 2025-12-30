@@ -5,7 +5,7 @@ import "context"
 // Provider is the minimal interface an LLM backend must implement.
 //
 // Implementations are expected to:
-// - treat ChatRequest as read-only
+// - treat Request as read-only
 // - return an LLMError (or wrap one) for provider/HTTP errors
 // - honor ctx cancellation
 type Provider interface {

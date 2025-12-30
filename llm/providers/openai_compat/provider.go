@@ -20,6 +20,9 @@ type Provider struct {
 
 	tr    *transport.Client
 	hooks Hooks
+
+	includeRawResponse     bool
+	includeRawStreamEvents bool
 }
 
 func New(apiKey string, opts ...Option) (*Provider, error) {
@@ -124,13 +127,37 @@ func WithDefaultModel(model string) Option {
 	}
 }
 
+// WithIncludeRawResponse controls whether ChatResponse.RawJSON is populated.
+//
+// Default: false (avoids an extra allocation/copy on every response).
+func WithIncludeRawResponse(enabled bool) Option {
+	return func(p *Provider) error {
+		p.includeRawResponse = enabled
+		return nil
+	}
+}
+
+// WithIncludeRawStreamEvents controls whether StreamEvent.RawJSON is populated for stream events.
+//
+// Default: false (avoids per-chunk allocations in streaming).
+func WithIncludeRawStreamEvents(enabled bool) Option {
+	return func(p *Provider) error {
+		p.includeRawStreamEvents = enabled
+		return nil
+	}
+}
+
 func (p *Provider) Chat(ctx context.Context, req llm.ChatRequest) (llm.ChatResponse, error) {
 	if err := p.validateRequest(req); err != nil {
 		return llm.ChatResponse{}, err
 	}
 
-	wreq := p.mapRequest(req)
+	wreq, err := p.mapRequest(req)
+	if err != nil {
+		return llm.ChatResponse{}, err
+	}
 	hdr := p.defaultHeaders("application/json")
+	applyRequestHeaders(hdr, req.Transport)
 
 	_, raw, err := p.tr.DoJSON(ctx, http.MethodPost, p.path, hdr, wreq)
 	if err != nil {
@@ -143,7 +170,9 @@ func (p *Provider) Chat(ctx context.Context, req llm.ChatRequest) (llm.ChatRespo
 	}
 
 	out := p.mapResponse(wresp)
-	out.RawJSON = append([]byte(nil), raw...)
+	if p.includeRawResponse {
+		out.RawJSON = append([]byte(nil), raw...)
+	}
 	return out, nil
 }
 
@@ -152,10 +181,14 @@ func (p *Provider) ChatStream(ctx context.Context, req llm.ChatRequest) (llm.Str
 		return nil, err
 	}
 
-	wreq := p.mapRequest(req)
+	wreq, err := p.mapRequest(req)
+	if err != nil {
+		return nil, err
+	}
 	wreq["stream"] = true
 
 	hdr := p.defaultHeaders("text/event-stream")
+	applyRequestHeaders(hdr, req.Transport)
 	resp, err := p.tr.DoStream(ctx, http.MethodPost, p.path, hdr, wreq)
 	if err != nil {
 		var se *transport.HTTPStatusError
@@ -165,7 +198,7 @@ func (p *Provider) ChatStream(ctx context.Context, req llm.ChatRequest) (llm.Str
 		return nil, p.mapError(err, nil)
 	}
 
-	return newStream(p.name, resp), nil
+	return newStream(p.name, resp, p.includeRawStreamEvents), nil
 }
 
 func (p *Provider) defaultHeaders(accept string) http.Header {
@@ -191,4 +224,20 @@ func (p *Provider) validateRequest(req llm.ChatRequest) error {
 		return errors.New("llm: messages is required")
 	}
 	return nil
+}
+
+func applyRequestHeaders(dst http.Header, tr *llm.TransportOptions) {
+	if tr == nil || len(tr.Headers) == 0 {
+		return
+	}
+	for k, vs := range tr.Headers {
+		// Request-scoped headers override any provider defaults.
+		dst.Del(k)
+		for _, v := range vs {
+			if k == "" || v == "" {
+				continue
+			}
+			dst.Add(k, v)
+		}
+	}
 }
