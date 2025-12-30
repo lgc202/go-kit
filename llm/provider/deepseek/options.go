@@ -4,9 +4,9 @@ import (
 	"github.com/lgc202/go-kit/llm"
 )
 
-// 扩展字段键，用于 llm.WithExtraField()。
+// 扩展字段键，用于 llm.WithExtraField()
 const (
-	ExtThinking = "thinking"
+	extThinking = "thinking"
 )
 
 // ThinkingType 控制推理模型的推理行为。
@@ -27,7 +27,7 @@ type Thinking struct {
 // - false: 禁用推理
 func WithThinking(enabled bool) llm.RequestOption {
 	if enabled {
-		return llm.WithExtraField(ExtThinking, Thinking{Type: ThinkingTypeEnabled})
+		return llm.WithExtraField(extThinking, Thinking{Type: ThinkingTypeEnabled})
 	}
-	return llm.WithExtraField(ExtThinking, Thinking{Type: ThinkingTypeDisabled})
+	return llm.WithExtraField(extThinking, Thinking{Type: ThinkingTypeDisabled})
 }

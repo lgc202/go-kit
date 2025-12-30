@@ -17,7 +17,7 @@ func (adapter) ApplyRequestExtensions(req map[string]any, cfg llm.RequestConfig)
 	}
 
 	// thinking - DeepSeek 特有的推理控制
-	if v, ok := cfg.ExtraFields[ExtThinking]; ok {
+	if v, ok := cfg.ExtraFields[extThinking]; ok {
 		req["thinking"] = v
 	}
 

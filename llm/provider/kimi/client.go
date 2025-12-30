@@ -2,31 +2,55 @@ package kimi
 
 import (
 	"context"
+	"net/http"
+	"strings"
 
 	"github.com/lgc202/go-kit/llm"
-	"github.com/lgc202/go-kit/llm/provider/openai"
+	"github.com/lgc202/go-kit/llm/internal/openai_compat"
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
 const DefaultBaseURL = "https://api.moonshot.cn/v1"
 
-type Config = openai.Config
+type Config struct {
+	BaseURL    string
+	APIKey     string
+	HTTPClient *http.Client
+
+	// DefaultHeaders are applied first, then overridden by request-level headers
+	DefaultHeaders http.Header
+
+	// DefaultRequest provides client-level defaults for request options
+	DefaultRequest llm.RequestConfig
+}
 
 type Client struct {
-	inner *openai.Client
+	inner *openai_compat.Client
 }
 
 var _ llm.ChatModel = (*Client)(nil)
 var _ llm.ProviderNamer = (*Client)(nil)
 
 func New(cfg Config) (*Client, error) {
-	if cfg.BaseURL == "" {
-		cfg.BaseURL = DefaultBaseURL
+	base := strings.TrimSpace(cfg.BaseURL)
+	if base == "" {
+		base = DefaultBaseURL
 	}
-	inner, err := openai.New(cfg)
+
+	inner, err := openai_compat.New(openai_compat.Config{
+		Provider:       llm.ProviderKimi,
+		BaseURL:        base,
+		Path:           "/chat/completions",
+		APIKey:         cfg.APIKey,
+		HTTPClient:     cfg.HTTPClient,
+		DefaultHeaders: cfg.DefaultHeaders,
+		DefaultRequest: cfg.DefaultRequest,
+		Adapter:        adapter{},
+	})
 	if err != nil {
 		return nil, err
 	}
+
 	return &Client{inner: inner}, nil
 }
 
