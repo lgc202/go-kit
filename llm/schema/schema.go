@@ -279,6 +279,13 @@ type ResponseFormat struct {
 	JSONSchema json.RawMessage `json:"json_schema,omitempty"`
 }
 
+// StreamOptions 配置流式响应的行为。
+type StreamOptions struct {
+	// IncludeUsage 表示是否在流式响应的最后一个块中包含使用统计信息。
+	// 设置为 true 时，流式响应结束时会包含一个包含 usage 字段的块。
+	IncludeUsage bool `json:"include_usage,omitempty"`
+}
+
 type FinishReason string
 
 const (

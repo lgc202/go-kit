@@ -12,5 +12,5 @@
 补充：
 
 - 多模态消息：使用 `schema.Message.Content` 搭配 `schema.TextPart` / `schema.ImageURLPart` / `schema.BinaryPart`
-- OpenAI-compatible 扩展：使用 `llm.WithExtraHeaders` / `llm.WithExtraBodyFields` 注入厂商差异字段
+- OpenAI-compatible 扩展：使用 `llm.WithExtraHeaders` / `llm.WithExtraFields` 注入厂商差异字段
 - 流式回调：使用 `llm.Wrap(model).Chat(..., llm.WithStreamingFunc(...))` 会自动走 `ChatStream` 并边收边回调

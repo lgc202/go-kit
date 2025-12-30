@@ -1,99 +1,33 @@
 package deepseek
 
 import (
-	"encoding/json"
-
 	"github.com/lgc202/go-kit/llm"
-	"github.com/lgc202/go-kit/llm/schema"
 )
 
+// 扩展字段键，用于 llm.WithExtraField()。
 const (
-	extThinking         = "deepseek.thinking"
-	extResponseFormat   = "deepseek.response_format"
-	extFrequencyPenalty = "deepseek.frequency_penalty"
-	extPresencePenalty  = "deepseek.presence_penalty"
-	extToolChoice       = "deepseek.tool_choice"
-	extTools            = "deepseek.tools"
-	extLogprobs         = "deepseek.logprobs"
-	extTopLogprobs      = "deepseek.top_logprobs"
-	extStreamOptions    = "deepseek.stream_options"
+	ExtThinking = "thinking"
 )
 
+// ThinkingType 控制推理模型的推理行为。
 type ThinkingType string
 
 const (
+	ThinkingTypeEnabled  ThinkingType = "enabled"
 	ThinkingTypeDisabled ThinkingType = "disabled"
 )
 
+// Thinking 控制推理模型的推理行为。
 type Thinking struct {
 	Type ThinkingType `json:"type"`
 }
 
-func WithThinkingDisabled() llm.RequestOption {
-	return llm.WithExtension(extThinking, Thinking{Type: ThinkingTypeDisabled})
-}
-
-type ResponseFormatType string
-
-const (
-	ResponseFormatTypeText ResponseFormatType = "text"
-)
-
-type ResponseFormat struct {
-	Type ResponseFormatType `json:"type"`
-}
-
-func WithResponseFormatText() llm.RequestOption {
-	return llm.WithResponseFormat(schema.ResponseFormat{Type: string(ResponseFormatTypeText)})
-}
-
-func WithFrequencyPenalty(v float64) llm.RequestOption {
-	return llm.WithFrequencyPenalty(v)
-}
-
-func WithPresencePenalty(v float64) llm.RequestOption {
-	return llm.WithPresencePenalty(v)
-}
-
-func WithTools(tools any) llm.RequestOption {
-	return llm.WithExtension(extTools, tools)
-}
-
-func WithToolChoice(choice any) llm.RequestOption {
-	return llm.WithExtension(extToolChoice, choice)
-}
-
-func WithLogprobs(enabled bool) llm.RequestOption {
-	return llm.WithLogprobs(enabled)
-}
-
-func WithTopLogprobs(v int) llm.RequestOption {
-	return llm.WithTopLogprobs(v)
-}
-
-func WithStreamOptions(streamOptions any) llm.RequestOption {
-	return llm.WithExtension(extStreamOptions, streamOptions)
-}
-
-func WithToolsCompat(tools ...schema.Tool) llm.RequestOption {
-	return llm.WithTools(tools...)
-}
-
-func WithToolChoiceNone() llm.RequestOption {
-	return llm.WithToolChoice(schema.ToolChoice{Mode: schema.ToolChoiceNone})
-}
-
-func WithToolChoiceAuto() llm.RequestOption {
-	return llm.WithToolChoice(schema.ToolChoice{Mode: schema.ToolChoiceAuto})
-}
-
-func WithToolChoiceFunction(name string) llm.RequestOption {
-	return llm.WithToolChoice(schema.ToolChoice{FunctionName: name})
-}
-
-func WithResponseFormatJSONSchema(s json.RawMessage) llm.RequestOption {
-	return llm.WithResponseFormat(schema.ResponseFormat{
-		Type:       "json_schema",
-		JSONSchema: s,
-	})
+// WithThinking 启用或禁用推理模式。
+// - true: 启用推理（deepseek-reasoner 默认值）
+// - false: 禁用推理
+func WithThinking(enabled bool) llm.RequestOption {
+	if enabled {
+		return llm.WithExtraField(ExtThinking, Thinking{Type: ThinkingTypeEnabled})
+	}
+	return llm.WithExtraField(ExtThinking, Thinking{Type: ThinkingTypeDisabled})
 }

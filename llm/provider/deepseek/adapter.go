@@ -9,38 +9,16 @@ type adapter struct {
 	openai_compat.NoopAdapter
 }
 
+// ApplyRequestExtensions 应用 DeepSeek 特有的扩展到请求。
+// 只处理标准 OpenAI 兼容层不支持的字段。
 func (adapter) ApplyRequestExtensions(req map[string]any, cfg llm.RequestConfig) error {
-	if cfg.Extensions == nil {
-		// Still allow generic compat-layer fields to be used without extensions.
+	if cfg.ExtraFields == nil {
 		return nil
 	}
 
-	if v, ok := cfg.Extensions[extThinking]; ok {
+	// thinking - DeepSeek 特有的推理控制
+	if v, ok := cfg.ExtraFields[ExtThinking]; ok {
 		req["thinking"] = v
-	}
-	if v, ok := cfg.Extensions[extResponseFormat]; ok {
-		req["response_format"] = v
-	}
-	if v, ok := cfg.Extensions[extFrequencyPenalty]; ok {
-		req["frequency_penalty"] = v
-	}
-	if v, ok := cfg.Extensions[extPresencePenalty]; ok {
-		req["presence_penalty"] = v
-	}
-	if v, ok := cfg.Extensions[extTools]; ok {
-		req["tools"] = v
-	}
-	if v, ok := cfg.Extensions[extToolChoice]; ok {
-		req["tool_choice"] = v
-	}
-	if v, ok := cfg.Extensions[extLogprobs]; ok {
-		req["logprobs"] = v
-	}
-	if v, ok := cfg.Extensions[extTopLogprobs]; ok {
-		req["top_logprobs"] = v
-	}
-	if v, ok := cfg.Extensions[extStreamOptions]; ok {
-		req["stream_options"] = v
 	}
 
 	return nil

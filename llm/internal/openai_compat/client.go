@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -228,7 +229,10 @@ func (c *Client) buildChatRequest(messages []schema.Message, cfg llm.RequestConf
 	if cfg.TopP != nil {
 		req["top_p"] = *cfg.TopP
 	}
-	if cfg.MaxTokens != nil {
+	// 优先使用 max_completion_tokens，如果没有则使用 max_tokens
+	if cfg.MaxCompletionTokens != nil {
+		req["max_completion_tokens"] = *cfg.MaxCompletionTokens
+	} else if cfg.MaxTokens != nil {
 		req["max_tokens"] = *cfg.MaxTokens
 	}
 	if cfg.Stop != nil {
@@ -256,6 +260,9 @@ func (c *Client) buildChatRequest(messages []schema.Message, cfg llm.RequestConf
 	if cfg.ToolChoice != nil {
 		req["tool_choice"] = mapToolChoice(*cfg.ToolChoice)
 	}
+	if cfg.ParallelToolCalls != nil {
+		req["parallel_tool_calls"] = *cfg.ParallelToolCalls
+	}
 	if cfg.ResponseFormat != nil {
 		rf, err := mapResponseFormat(*cfg.ResponseFormat)
 		if err != nil {
@@ -263,14 +270,28 @@ func (c *Client) buildChatRequest(messages []schema.Message, cfg llm.RequestConf
 		}
 		req["response_format"] = rf
 	}
-
-	if cfg.ExtraBodyFields != nil {
-		for k, v := range cfg.ExtraBodyFields {
-			if _, exists := req[k]; exists {
-				return nil, fmt.Errorf("%s: extra body field %q conflicts with a built-in option", c.provider, k)
-			}
-			req[k] = v
+	if cfg.N != nil {
+		req["n"] = *cfg.N
+	}
+	if cfg.Seed != nil {
+		req["seed"] = *cfg.Seed
+	}
+	if cfg.Metadata != nil && len(cfg.Metadata) > 0 {
+		req["metadata"] = cfg.Metadata
+	}
+	if cfg.StreamOptions != nil {
+		data, err := json.Marshal(cfg.StreamOptions)
+		if err != nil {
+			return nil, fmt.Errorf("%s: marshal stream_options: %w", c.provider, err)
 		}
+		// 只在非零值时才添加，避免发送 null
+		if !bytes.Equal(data, []byte("{}")) && !bytes.Equal(data, []byte("null")) {
+			req["stream_options"] = json.RawMessage(data)
+		}
+	}
+
+	if cfg.ExtraFields != nil {
+		maps.Copy(req, cfg.ExtraFields)
 	}
 
 	if c.adapter != nil {
