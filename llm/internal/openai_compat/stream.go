@@ -102,6 +102,7 @@ func (s *stream) Recv() (schema.StreamEvent, error) {
 						TotalTokens:           chunk.Usage.TotalTokens,
 						PromptCacheHitTokens:  chunk.Usage.PromptCacheHitTokens,
 						PromptCacheMissTokens: chunk.Usage.PromptCacheMissTokens,
+						CachedTokens:          chunk.Usage.CachedTokens,
 					}
 					if chunk.Usage.CompletionTokensDetails != nil && chunk.Usage.CompletionTokensDetails.ReasoningTokens != 0 {
 						ev.Usage.CompletionTokensDetails = &schema.CompletionTokensDetails{
@@ -122,6 +123,7 @@ func (s *stream) Recv() (schema.StreamEvent, error) {
 					TotalTokens:           chunk.Usage.TotalTokens,
 					PromptCacheHitTokens:  chunk.Usage.PromptCacheHitTokens,
 					PromptCacheMissTokens: chunk.Usage.PromptCacheMissTokens,
+					CachedTokens:          chunk.Usage.CachedTokens,
 				},
 			})
 			if u := mapped[len(mapped)-1].Usage; u != nil && chunk.Usage.CompletionTokensDetails != nil && chunk.Usage.CompletionTokensDetails.ReasoningTokens != 0 {

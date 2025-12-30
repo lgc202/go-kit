@@ -38,6 +38,7 @@ type usage struct {
 
 	PromptCacheHitTokens  int `json:"prompt_cache_hit_tokens,omitempty"`
 	PromptCacheMissTokens int `json:"prompt_cache_miss_tokens,omitempty"`
+	CachedTokens          int `json:"cached_tokens,omitempty"`
 
 	CompletionTokensDetails *struct {
 		ReasoningTokens int `json:"reasoning_tokens,omitempty"`

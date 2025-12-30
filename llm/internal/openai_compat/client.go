@@ -492,6 +492,7 @@ func (c *Client) mapChatResponse(raw []byte, keepRaw bool) (schema.ChatResponse,
 			TotalTokens:           in.Usage.TotalTokens,
 			PromptCacheHitTokens:  in.Usage.PromptCacheHitTokens,
 			PromptCacheMissTokens: in.Usage.PromptCacheMissTokens,
+			CachedTokens:          in.Usage.CachedTokens,
 		},
 		ServiceTier: in.ServiceTier,
 	}

@@ -337,10 +337,11 @@ type Usage struct {
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
 
-	PromptCacheHitTokens  int `json:"prompt_cache_hit_tokens,omitempty"`
-	PromptCacheMissTokens int `json:"prompt_cache_miss_tokens,omitempty"`
+	PromptCacheHitTokens  int `json:"prompt_cache_hit_tokens,omitempty"`  // DeepSeek
+	PromptCacheMissTokens int `json:"prompt_cache_miss_tokens,omitempty"` // DeepSeek
+	CachedTokens          int `json:"cached_tokens,omitempty"`            // Kimi
 
-	CompletionTokensDetails *CompletionTokensDetails `json:"completion_tokens_details,omitempty"`
+	CompletionTokensDetails *CompletionTokensDetails `json:"completion_tokens_details,omitempty"` // OpenAI
 }
 
 type CompletionTokensDetails struct {
