@@ -85,9 +85,6 @@ func New(cfg Config) (*Client, error) {
 	}
 
 	ad := cfg.Adapter
-	if ad == nil {
-		ad = NoopAdapter{}
-	}
 
 	return &Client{
 		provider:      string(cfg.Provider),
@@ -179,12 +176,19 @@ func (c *Client) doRequest(ctx context.Context, payload map[string]any, cfg llm.
 
 // parseChatResponse 解析 chat 响应
 func (c *Client) parseChatResponse(resp *http.Response, cfg llm.RequestConfig) (schema.ChatResponse, error) {
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return schema.ChatResponse{}, fmt.Errorf("%s: read response: %w", c.provider, err)
+	if cfg.KeepRaw || c.adapter != nil {
+		respBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return schema.ChatResponse{}, fmt.Errorf("%s: read response: %w", c.provider, err)
+		}
+		return c.mapChatResponseBytes(respBytes, cfg.KeepRaw)
 	}
 
-	return c.mapChatResponse(respBytes, cfg.KeepRaw)
+	var in chatCompletionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&in); err != nil {
+		return schema.ChatResponse{}, fmt.Errorf("%s: decode response: %w", c.provider, err)
+	}
+	return c.mapChatResponseStruct(in), nil
 }
 
 func (c *Client) buildChatRequest(messages []schema.Message, cfg llm.RequestConfig, stream bool) (map[string]any, error) {
@@ -221,7 +225,9 @@ func (c *Client) buildChatRequest(messages []schema.Message, cfg llm.RequestConf
 	}
 
 	// 应用其他可选参数
-	c.applyOptionalParams(req, cfg)
+	if err := c.applyOptionalParams(req, cfg); err != nil {
+		return nil, err
+	}
 
 	// 应用 provider 特定扩展
 	if err := c.applyProviderExtensions(req, cfg); err != nil {
@@ -322,7 +328,16 @@ func (c *Client) applyOptionalParams(req map[string]any, cfg llm.RequestConfig) 
 		}
 	}
 	if cfg.ExtraFields != nil {
-		maps.Copy(req, cfg.ExtraFields)
+		if cfg.AllowExtraFieldOverride {
+			maps.Copy(req, cfg.ExtraFields)
+		} else {
+			for k, v := range cfg.ExtraFields {
+				if _, exists := req[k]; exists {
+					return fmt.Errorf("%s: extra field %q conflicts with a built-in option (set llm.WithAllowExtraFieldOverride(true) to override)", c.provider, k)
+				}
+				req[k] = v
+			}
+		}
 	}
 	return nil
 }
@@ -477,12 +492,28 @@ func mapResponseFormat(rf schema.ResponseFormat) (map[string]any, error) {
 	return out, nil
 }
 
-func (c *Client) mapChatResponse(raw []byte, keepRaw bool) (schema.ChatResponse, error) {
+func (c *Client) mapChatResponseBytes(raw []byte, keepRaw bool) (schema.ChatResponse, error) {
 	var in chatCompletionResponse
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return schema.ChatResponse{}, fmt.Errorf("%s: decode response: %w", c.provider, err)
 	}
 
+	out := c.mapChatResponseStruct(in)
+	if keepRaw {
+		out.Raw = json.RawMessage(raw)
+	}
+
+	// 调用 adapter 丰富响应数据
+	if c.adapter != nil {
+		if err := c.adapter.EnrichResponse(&out, json.RawMessage(raw)); err != nil {
+			return schema.ChatResponse{}, err
+		}
+	}
+
+	return out, nil
+}
+
+func (c *Client) mapChatResponseStruct(in chatCompletionResponse) schema.ChatResponse {
 	out := schema.ChatResponse{
 		ID:    in.ID,
 		Model: in.Model,
@@ -495,9 +526,6 @@ func (c *Client) mapChatResponse(raw []byte, keepRaw bool) (schema.ChatResponse,
 			CachedTokens:          in.Usage.CachedTokens,
 		},
 		ServiceTier: in.ServiceTier,
-	}
-	if keepRaw {
-		out.Raw = json.RawMessage(raw)
 	}
 	if in.Usage.CompletionTokensDetails != nil && in.Usage.CompletionTokensDetails.ReasoningTokens != 0 {
 		out.Usage.CompletionTokensDetails = &schema.CompletionTokensDetails{
@@ -516,15 +544,7 @@ func (c *Client) mapChatResponse(raw []byte, keepRaw bool) (schema.ChatResponse,
 			FinishReason: schema.FinishReason(c0.FinishReason),
 		})
 	}
-
-	// 调用 adapter 丰富响应数据
-	if c.adapter != nil {
-		if err := c.adapter.EnrichResponse(&out, json.RawMessage(raw)); err != nil {
-			return schema.ChatResponse{}, err
-		}
-	}
-
-	return out, nil
+	return out
 }
 
 func mapWireMessage(m wireMessage) schema.Message {

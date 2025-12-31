@@ -126,6 +126,10 @@ type RequestConfig struct {
 	// Provider 也可以通过 adapter 应用自定义逻辑
 	ExtraFields map[string]any
 
+	// AllowExtraFieldOverride 控制 ExtraFields 是否允许覆盖已由标准选项设置的请求字段。
+	// 默认为 false，避免“看似设置了 WithModel/WithMaxTokens 但被 ExtraFields 覆盖”的隐蔽问题。
+	AllowExtraFieldOverride bool
+
 	// KeepRaw 设置是否保留 provider 原始的 JSON 响应
 	// 为 true 时，schema.ChatResponse.Raw 和 schema.StreamEvent.Raw 会包含原始响应
 	// 默认为 false 以减少内存占用
@@ -472,6 +476,13 @@ func WithExtraField(key string, value any) RequestOption {
 			c.ExtraFields = make(map[string]any)
 		}
 		c.ExtraFields[key] = value
+	}
+}
+
+// WithAllowExtraFieldOverride 设置是否允许 ExtraFields 覆盖已存在的请求字段。
+func WithAllowExtraFieldOverride(enabled bool) RequestOption {
+	return func(c *RequestConfig) {
+		c.AllowExtraFieldOverride = enabled
 	}
 }
 

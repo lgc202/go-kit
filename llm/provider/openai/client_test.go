@@ -109,3 +109,67 @@ func TestChat_MultimodalAndToolsRequest(t *testing.T) {
 		t.Fatalf("tools missing")
 	}
 }
+
+func TestChat_ExtraFieldsOverride(t *testing.T) {
+	t.Parallel()
+
+	var gotReq map[string]any
+	httpClient := &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			if err := json.NewDecoder(r.Body).Decode(&gotReq); err != nil {
+				return &http.Response{
+					StatusCode: http.StatusBadRequest,
+					Body:       io.NopCloser(strings.NewReader(err.Error())),
+					Header:     make(http.Header),
+					Request:    r,
+				}, nil
+			}
+
+			body := `{
+  "id":"abc",
+  "created": 1,
+  "model":"gpt-4o-mini",
+  "choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"ok"}}],
+  "usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}
+}`
+
+			h := make(http.Header)
+			h.Set("Content-Type", "application/json")
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Header:     h,
+				Request:    r,
+			}, nil
+		}),
+	}
+
+	c, err := New(Config{
+		BaseURL:    "https://example.test/v1",
+		APIKey:     "tok",
+		HTTPClient: httpClient,
+		DefaultRequest: llm.RequestConfig{
+			Model: "gpt-4o-mini",
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	_, err = c.Chat(context.Background(), []schema.Message{
+		schema.UserMessage("Hi"),
+	}, llm.WithExtraField("model", "override-model"))
+	if err == nil || !strings.Contains(err.Error(), "conflicts") {
+		t.Fatalf("expected conflict error, got: %v", err)
+	}
+
+	_, err = c.Chat(context.Background(), []schema.Message{
+		schema.UserMessage("Hi"),
+	}, llm.WithAllowExtraFieldOverride(true), llm.WithExtraField("model", "override-model"))
+	if err != nil {
+		t.Fatalf("Chat: %v", err)
+	}
+	if gotReq["model"] != "override-model" {
+		t.Fatalf("model override: got %#v", gotReq["model"])
+	}
+}
