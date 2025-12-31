@@ -67,10 +67,17 @@ func New(cfg Config) (*Client, error) {
 	}
 
 	path := strings.TrimSpace(cfg.Path)
-	if path == "" {
-		path = "/chat/completions"
+	basePath := strings.TrimRight(u.Path, "/")
+	if path == "" || path == "/chat/completions" {
+		// If user passes a full endpoint URL like ".../chat/completions" (common copy/paste),
+		// avoid duplicating it when Path is omitted (or left as default).
+		if strings.HasSuffix(basePath, "/chat/completions") {
+			path = ""
+		} else if path == "" {
+			path = "/chat/completions"
+		}
 	}
-	if !strings.HasPrefix(path, "/") {
+	if path != "" && !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
 
@@ -405,6 +412,9 @@ func (c *Client) applyHeaders(req *http.Request, cfg llm.RequestConfig) {
 }
 
 func (c *Client) endpoint() string {
+	if strings.TrimSpace(c.path) == "" {
+		return c.baseURL.String()
+	}
 	return c.baseURL.JoinPath(strings.TrimPrefix(c.path, "/")).String()
 }
 
