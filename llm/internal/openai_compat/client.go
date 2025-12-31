@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -31,8 +32,8 @@ type Config struct {
 	// DefaultHeaders 首先应用，然后被请求级别的 headers 覆盖
 	DefaultHeaders http.Header
 
-	// DefaultRequest 提供客户端级别的默认请求选项
-	DefaultRequest llm.RequestConfig
+	// DefaultOptions 提供客户端级别的默认请求选项
+	DefaultOptions []llm.RequestOption
 
 	Adapter Adapter
 }
@@ -46,7 +47,7 @@ type Client struct {
 	apiKey        string
 	httpClient    *http.Client
 	defaultHeader http.Header
-	defaultReq    llm.RequestConfig
+	defaultOpts   []llm.RequestOption
 	adapter       Adapter
 }
 
@@ -84,8 +85,6 @@ func New(cfg Config) (*Client, error) {
 		hdr = cfg.DefaultHeaders.Clone()
 	}
 
-	ad := cfg.Adapter
-
 	return &Client{
 		provider:      string(cfg.Provider),
 		baseURL:       u,
@@ -93,13 +92,13 @@ func New(cfg Config) (*Client, error) {
 		apiKey:        cfg.APIKey,
 		httpClient:    hc,
 		defaultHeader: hdr,
-		defaultReq:    cfg.DefaultRequest,
-		adapter:       ad,
+		defaultOpts:   slices.Clone(cfg.DefaultOptions),
+		adapter:       cfg.Adapter,
 	}, nil
 }
 
 func (c *Client) Chat(ctx context.Context, messages []schema.Message, opts ...llm.RequestOption) (schema.ChatResponse, error) {
-	reqCfg := llm.ApplyRequestOptions(c.defaultReq, opts...)
+	reqCfg := llm.ApplyRequestOptions(slices.Concat(c.defaultOpts, opts)...)
 	var cancel context.CancelFunc
 	if reqCfg.Timeout != nil {
 		ctx, cancel = context.WithTimeout(ctx, *reqCfg.Timeout)
@@ -121,7 +120,7 @@ func (c *Client) Chat(ctx context.Context, messages []schema.Message, opts ...ll
 }
 
 func (c *Client) ChatStream(ctx context.Context, messages []schema.Message, opts ...llm.RequestOption) (llm.Stream, error) {
-	reqCfg := llm.ApplyRequestOptions(c.defaultReq, opts...)
+	reqCfg := llm.ApplyRequestOptions(slices.Concat(c.defaultOpts, opts)...)
 	var cancel context.CancelFunc
 	if reqCfg.Timeout != nil {
 		ctx, cancel = context.WithTimeout(ctx, *reqCfg.Timeout)

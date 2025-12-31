@@ -23,8 +23,8 @@ type Config struct {
 	// DefaultHeaders are applied first, then overridden by request-level headers.
 	DefaultHeaders http.Header
 
-	// DefaultRequest provides client-level defaults for request options.
-	DefaultRequest llm.RequestConfig
+	// DefaultOptions provides client-level defaults for request options.
+	DefaultOptions []llm.RequestOption
 }
 
 type Client struct {
@@ -44,7 +44,7 @@ func New(cfg Config) (*Client, error) {
 		APIKey:         cfg.APIKey,
 		HTTPClient:     cfg.HTTPClient,
 		DefaultHeaders: cfg.DefaultHeaders,
-		DefaultRequest: cfg.DefaultRequest,
+		DefaultOptions: cfg.DefaultOptions,
 	})
 	if err != nil {
 		return nil, err

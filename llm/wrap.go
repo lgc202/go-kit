@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/lgc202/go-kit/llm/schema"
@@ -37,8 +38,8 @@ func WithDefaultRequestOptions(opts ...RequestOption) ClientOption {
 }
 
 func (c *Client) Chat(ctx context.Context, messages []schema.Message, opts ...RequestOption) (schema.ChatResponse, error) {
-	merged := append(append([]RequestOption(nil), c.defaultOpts...), opts...)
-	reqCfg := ApplyRequestOptions(RequestConfig{}, merged...)
+	merged := slices.Concat(c.defaultOpts, opts)
+	reqCfg := ApplyRequestOptions(merged...)
 	if reqCfg.StreamingFunc == nil && reqCfg.StreamingReasoningFunc == nil {
 		return c.model.Chat(ctx, messages, merged...)
 	}
@@ -188,7 +189,7 @@ done:
 				ReasoningContent: a.reasoning.String(),
 			}
 			if len(a.toolCalls) > 0 {
-				msg.ToolCalls = append([]schema.ToolCall(nil), a.toolCalls...)
+				msg.ToolCalls = slices.Clone(a.toolCalls)
 			}
 
 			resp.Choices = append(resp.Choices, schema.Choice{
@@ -203,7 +204,7 @@ done:
 }
 
 func (c *Client) ChatStream(ctx context.Context, messages []schema.Message, opts ...RequestOption) (Stream, error) {
-	merged := append(append([]RequestOption(nil), c.defaultOpts...), opts...)
+	merged := slices.Concat(c.defaultOpts, opts)
 	return c.model.ChatStream(ctx, messages, merged...)
 }
 

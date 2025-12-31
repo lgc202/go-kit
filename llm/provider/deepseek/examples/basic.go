@@ -19,10 +19,8 @@ func Basic() error {
 	}
 
 	client, err := deepseek.New(deepseek.Config{
-		APIKey: apiKey,
-		DefaultRequest: llm.RequestConfig{
-			Model: "deepseek-chat",
-		},
+		APIKey:         apiKey,
+		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
 		return err
@@ -54,10 +52,8 @@ func Streaming() error {
 	}
 
 	client, err := deepseek.New(deepseek.Config{
-		APIKey: apiKey,
-		DefaultRequest: llm.RequestConfig{
-			Model: "deepseek-chat",
-		},
+		APIKey:         apiKey,
+		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
 		return err

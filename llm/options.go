@@ -4,6 +4,7 @@ import (
 	"context"
 	"maps"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/lgc202/go-kit/llm/schema"
@@ -144,81 +145,11 @@ type RequestConfig struct {
 	StreamingReasoningFunc func(ctx context.Context, reasoningChunk, chunk []byte) error
 }
 
-// clonePtr 辅助函数：克隆指针类型的值
-func clonePtr[T any](v *T) *T {
-	if v == nil {
-		return nil
-	}
-	c := *v
-	return &c
-}
-
-// cloneSlice 辅助函数：克隆切片
-func cloneSlice[T any](s []T) []T {
-	if s == nil {
-		return nil
-	}
-	return append([]T(nil), s...)
-}
-
-// cloneMap 辅助函数：使用 maps.Copy 克隆 map
-func cloneMap[K comparable, V any](m map[K]V) map[K]V {
-	if m == nil {
-		return nil
-	}
-	out := make(map[K]V, len(m))
-	maps.Copy(out, m)
-	return out
-}
-
-// clone 创建 RequestConfig 的深拷贝，用于避免修改原始配置
-func (c RequestConfig) clone() RequestConfig {
-	out := c
-
-	// 克隆指针类型
-	out.Stop = func() *[]string {
-		if c.Stop == nil {
-			return nil
-		}
-		cp := cloneSlice(*c.Stop)
-		return &cp
-	}()
-
-	out.FrequencyPenalty = clonePtr(c.FrequencyPenalty)
-	out.PresencePenalty = clonePtr(c.PresencePenalty)
-	out.Logprobs = clonePtr(c.Logprobs)
-	out.TopLogprobs = clonePtr(c.TopLogprobs)
-	out.ToolChoice = clonePtr(c.ToolChoice)
-	out.ResponseFormat = clonePtr(c.ResponseFormat)
-	out.MaxTokens = clonePtr(c.MaxTokens)
-	out.MaxCompletionTokens = clonePtr(c.MaxCompletionTokens)
-	out.ParallelToolCalls = clonePtr(c.ParallelToolCalls)
-	out.N = clonePtr(c.N)
-	out.Seed = clonePtr(c.Seed)
-	out.StreamOptions = clonePtr(c.StreamOptions)
-	out.ServiceTier = clonePtr(c.ServiceTier)
-	out.User = clonePtr(c.User)
-	out.Timeout = clonePtr(c.Timeout)
-
-	// 克隆切片类型
-	out.Tools = cloneSlice(c.Tools)
-
-	// 克隆 map 类型
-	out.Metadata = cloneMap(c.Metadata)
-	out.LogitBias = cloneMap(c.LogitBias)
-	out.ExtraFields = cloneMap(c.ExtraFields)
-
-	// Headers 有自己的 Clone 方法
-	if c.Headers != nil {
-		out.Headers = c.Headers.Clone()
-	}
-
-	return out
-}
-
-// ApplyRequestOptions 将选项应用到基础配置上，返回新的配置
-func ApplyRequestOptions(base RequestConfig, opts ...RequestOption) RequestConfig {
-	cfg := base.clone()
+// ApplyRequestOptions 将选项应用到一个新的 RequestConfig 上，返回配置结果。
+//
+// 采用“每次请求构建新配置”的方式（类似 langchaingo/eino），避免维护深拷贝逻辑。
+func ApplyRequestOptions(opts ...RequestOption) RequestConfig {
+	var cfg RequestConfig
 	for _, opt := range opts {
 		if opt == nil {
 			continue
@@ -268,7 +199,7 @@ func WithMaxCompletionTokens(v int) RequestOption {
 // WithStop 设置停止序列
 func WithStop(stop ...string) RequestOption {
 	return func(c *RequestConfig) {
-		cp := append([]string(nil), stop...)
+		cp := slices.Clone(stop)
 		c.Stop = &cp
 	}
 }
@@ -310,7 +241,7 @@ func WithTopLogprobs(v int) RequestOption {
 // WithTools 设置模型可调用的工具列表
 func WithTools(tools ...schema.Tool) RequestOption {
 	return func(c *RequestConfig) {
-		c.Tools = append([]schema.Tool(nil), tools...)
+		c.Tools = slices.Clone(tools)
 	}
 }
 
@@ -365,6 +296,7 @@ func WithSeed(seed int) RequestOption {
 // WithMetadata 设置请求的元数据
 // 最多支持 16 个键值对，键和值都是字符串，长度不超过 64 字符
 func WithMetadata(metadata map[string]string) RequestOption {
+	metadata = maps.Clone(metadata)
 	return func(c *RequestConfig) {
 		if len(metadata) == 0 {
 			return
@@ -379,6 +311,7 @@ func WithMetadata(metadata map[string]string) RequestOption {
 // WithLogitBias 设置 token 偏置
 // 用于修改特定 token 出现的概率，值范围为 -100 到 100
 func WithLogitBias(bias map[string]int) RequestOption {
+	bias = maps.Clone(bias)
 	return func(c *RequestConfig) {
 		if len(bias) == 0 {
 			return
@@ -441,6 +374,7 @@ func WithHeader(key, value string) RequestOption {
 
 // WithExtraHeaders 批量设置 HTTP 头
 func WithExtraHeaders(headers map[string]string) RequestOption {
+	headers = maps.Clone(headers)
 	return func(c *RequestConfig) {
 		if len(headers) == 0 {
 			return
@@ -457,6 +391,7 @@ func WithExtraHeaders(headers map[string]string) RequestOption {
 // WithExtraFields 批量设置扩展字段
 // 这些字段会直接合并到请求体中，用于支持 provider 特定的功能
 func WithExtraFields(fields map[string]any) RequestOption {
+	fields = maps.Clone(fields)
 	return func(c *RequestConfig) {
 		if len(fields) == 0 {
 			return

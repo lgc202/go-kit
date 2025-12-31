@@ -21,8 +21,8 @@ type Config struct {
 	// DefaultHeaders 首先应用，然后被请求级别的 headers 覆盖
 	DefaultHeaders http.Header
 
-	// DefaultRequest 提供客户端级别的默认请求选项
-	DefaultRequest llm.RequestConfig
+	// DefaultOptions 提供客户端级别的默认请求选项
+	DefaultOptions []llm.RequestOption
 }
 
 type Client struct {
@@ -45,7 +45,7 @@ func New(cfg Config) (*Client, error) {
 		APIKey:         cfg.APIKey,
 		HTTPClient:     cfg.HTTPClient,
 		DefaultHeaders: cfg.DefaultHeaders,
-		DefaultRequest: cfg.DefaultRequest,
+		DefaultOptions: cfg.DefaultOptions,
 	})
 	if err != nil {
 		return nil, err

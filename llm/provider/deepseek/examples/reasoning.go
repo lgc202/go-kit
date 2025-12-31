@@ -18,10 +18,8 @@ func Reasoning() error {
 	}
 
 	client, err := deepseek.New(deepseek.Config{
-		APIKey: apiKey,
-		DefaultRequest: llm.RequestConfig{
-			Model: "deepseek-reasoner",
-		},
+		APIKey:         apiKey,
+		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-reasoner")},
 	})
 	if err != nil {
 		return err
@@ -57,10 +55,8 @@ func ReasoningDisabled() error {
 	}
 
 	client, err := deepseek.New(deepseek.Config{
-		APIKey: apiKey,
-		DefaultRequest: llm.RequestConfig{
-			Model: "deepseek-reasoner",
-		},
+		APIKey:         apiKey,
+		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-reasoner")},
 	})
 	if err != nil {
 		return err
@@ -92,10 +88,8 @@ func ReasoningStreaming() error {
 	}
 
 	client, err := deepseek.New(deepseek.Config{
-		APIKey: apiKey,
-		DefaultRequest: llm.RequestConfig{
-			Model: "deepseek-reasoner",
-		},
+		APIKey:         apiKey,
+		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-reasoner")},
 	})
 	if err != nil {
 		return err

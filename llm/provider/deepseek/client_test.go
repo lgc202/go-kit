@@ -57,12 +57,10 @@ func TestChat_RequestAndResponseMapping(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		BaseURL:    "https://example.test",
-		APIKey:     "tok",
-		HTTPClient: httpClient,
-		DefaultRequest: llm.RequestConfig{
-			Model: "deepseek-chat",
-		},
+		BaseURL:        "https://example.test",
+		APIKey:         "tok",
+		HTTPClient:     httpClient,
+		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -157,12 +155,10 @@ func TestChatStream_BasicDelta(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		BaseURL:    "https://example.test",
-		APIKey:     "tok",
-		HTTPClient: httpClient,
-		DefaultRequest: llm.RequestConfig{
-			Model: "deepseek-chat",
-		},
+		BaseURL:        "https://example.test",
+		APIKey:         "tok",
+		HTTPClient:     httpClient,
+		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)

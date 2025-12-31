@@ -33,13 +33,11 @@ import (
     "github.com/lgc202/go-kit/llm/schema"
 )
 
-func main() {
-    client, err := deepseek.New(deepseek.Config{
-        APIKey: os.Getenv("DEEPSEEK_API_KEY"),
-        DefaultRequest: llm.RequestConfig{
-            Model: "deepseek-chat",
-        },
-    })
+	func main() {
+	    client, err := deepseek.New(deepseek.Config{
+	        APIKey: os.Getenv("DEEPSEEK_API_KEY"),
+	        DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-chat")},
+	    })
     if err != nil {
         panic(err)
     }
@@ -132,12 +130,10 @@ llm.WithResponseFormat(schema.ResponseFormat{
 `deepseek-reasoner` 模型提供高级推理能力，响应中包含 `reasoning_content` 字段：
 
 ```go
-client, _ := deepseek.New(deepseek.Config{
-    APIKey: os.Getenv("DEEPSEEK_API_KEY"),
-    DefaultRequest: llm.RequestConfig{
-        Model: "deepseek-reasoner",
-    },
-})
+	client, _ := deepseek.New(deepseek.Config{
+	    APIKey: os.Getenv("DEEPSEEK_API_KEY"),
+	    DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-reasoner")},
+	})
 
 resp, err := client.Chat(context.Background(), []schema.Message{
     schema.UserMessage("如果我有 5 个苹果，吃了 2 个，又买了 3 个，现在有几个？"),
@@ -325,14 +321,14 @@ if usage.CompletionTokensDetails != nil {
 ### 客户端级默认配置
 
 ```go
-client, err := deepseek.New(deepseek.Config{
-    APIKey: os.Getenv("DEEPSEEK_API_KEY"),
-    DefaultRequest: llm.RequestConfig{
-        Model:       "deepseek-chat",
-        Temperature: llm.Of(0.7),
-        MaxTokens:   llm.Of(1000),
-    },
-})
+	client, err := deepseek.New(deepseek.Config{
+	    APIKey: os.Getenv("DEEPSEEK_API_KEY"),
+	    DefaultOptions: []llm.RequestOption{
+	        llm.WithModel("deepseek-chat"),
+	        llm.WithTemperature(0.7),
+	        llm.WithMaxTokens(1000),
+	    },
+	})
 ```
 
 ### 自定义 Base URL

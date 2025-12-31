@@ -19,9 +19,7 @@ func main() {
 	}
 
 	m, err := ollama.New(ollama.Config{
-		DefaultRequest: llm.RequestConfig{
-			Model: modelName,
-		},
+		DefaultOptions: []llm.RequestOption{llm.WithModel(modelName)},
 	})
 	if err != nil {
 		log.Fatal(err)

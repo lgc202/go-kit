@@ -104,7 +104,7 @@ type Config struct {
     // DefaultHeaders 请求级 headers 会覆盖这些默认值
     DefaultHeaders http.Header
 
-    // DefaultRequest 客户端级别的默认请求选项
-    DefaultRequest llm.RequestConfig
+    // DefaultOptions 客户端级别的默认请求选项
+    DefaultOptions []llm.RequestOption
 }
 ```
