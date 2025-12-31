@@ -137,7 +137,7 @@ type RequestConfig struct {
 	KeepRaw bool
 
 	// StreamingFunc 是流式输出回调（客户端使用，不发送到 provider）
-	// 在 llm.Wrap(...).Chat 中使用流式 API 时会被调用
+	// 由上层封装在使用流式 API 时调用
 	StreamingFunc func(ctx context.Context, chunk []byte) error
 
 	// StreamingReasoningFunc 是推理内容的流式回调（客户端使用，不发送到 provider）
