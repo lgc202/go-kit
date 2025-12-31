@@ -5,6 +5,30 @@ import (
 	"fmt"
 )
 
+const (
+	defaultChatCompletionsPath = "/chat/completions"
+)
+
+type wireContentType string
+
+const (
+	wireContentTypeText     wireContentType = "text"
+	wireContentTypeImageURL wireContentType = "image_url"
+)
+
+type wireToolType string
+
+const (
+	wireToolTypeFunction wireToolType = "function"
+)
+
+type wireToolChoiceMode string
+
+const (
+	wireToolChoiceNone wireToolChoiceMode = "none"
+	wireToolChoiceAuto wireToolChoiceMode = "auto"
+)
+
 type chatCompletionRequest struct {
 	provider string `json:"-"`
 
@@ -33,7 +57,7 @@ type chatCompletionRequest struct {
 	User        *string `json:"user,omitempty"`
 
 	Tools             []wireTool          `json:"tools,omitempty"`
-	ToolChoice        any                 `json:"tool_choice,omitempty"`
+	ToolChoice        *wireToolChoice     `json:"tool_choice,omitempty"`
 	ParallelToolCalls *bool               `json:"parallel_tool_calls,omitempty"`
 	ResponseFormat    *wireResponseFormat `json:"response_format,omitempty"`
 
@@ -75,15 +99,36 @@ func (r chatCompletionRequest) MarshalJSON() ([]byte, error) {
 }
 
 type wireRequestMessage struct {
-	Role    string `json:"role"`
-	Content any    `json:"content"`
+	Role    string             `json:"role"`
+	Content wireRequestContent `json:"content"`
 
 	Name       string `json:"name,omitempty"`
 	ToolCallID string `json:"tool_call_id,omitempty"`
 }
 
+type wireRequestContent struct {
+	text   string
+	isText bool
+	parts  []wireRequestContentPart
+}
+
+func wireRequestText(s string) wireRequestContent {
+	return wireRequestContent{text: s, isText: true}
+}
+
+func wireRequestParts(parts []wireRequestContentPart) wireRequestContent {
+	return wireRequestContent{parts: parts}
+}
+
+func (c wireRequestContent) MarshalJSON() ([]byte, error) {
+	if c.isText {
+		return json.Marshal(c.text)
+	}
+	return json.Marshal(c.parts)
+}
+
 type wireRequestContentPart struct {
-	Type string `json:"type"`
+	Type wireContentType `json:"type"`
 
 	Text string `json:"text,omitempty"`
 
@@ -96,7 +141,7 @@ type wireRequestImageURL struct {
 }
 
 type wireTool struct {
-	Type     string       `json:"type"`
+	Type     wireToolType `json:"type"`
 	Function wireFunction `json:"function"`
 }
 
@@ -114,8 +159,28 @@ type wireResponseFormat struct {
 }
 
 type wireToolChoiceFunction struct {
-	Type     string `json:"type"`
+	Type     wireToolType `json:"type"`
 	Function struct {
 		Name string `json:"name"`
 	} `json:"function"`
+}
+
+type wireToolChoice struct {
+	Mode         wireToolChoiceMode
+	FunctionName string
+}
+
+func (tc wireToolChoice) MarshalJSON() ([]byte, error) {
+	switch tc.Mode {
+	case wireToolChoiceNone, wireToolChoiceAuto:
+		return json.Marshal(tc.Mode)
+	default:
+		if tc.FunctionName == "" {
+			return json.Marshal(wireToolChoiceAuto)
+		}
+		var out wireToolChoiceFunction
+		out.Type = wireToolTypeFunction
+		out.Function.Name = tc.FunctionName
+		return json.Marshal(out)
+	}
 }

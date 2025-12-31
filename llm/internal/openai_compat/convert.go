@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lgc202/go-kit/llm"
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
@@ -89,33 +88,37 @@ func toSchemaChatResponse(in chatCompletionResponse) schema.ChatResponse {
 	return out
 }
 
-func toSchemaContentParts(in any) []schema.ContentPart {
-	switch v := in.(type) {
-	case string:
-		if v == "" {
+func toSchemaContentParts(raw json.RawMessage) []schema.ContentPart {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+
+	switch raw[0] {
+	case '"':
+		var s string
+		if err := json.Unmarshal(raw, &s); err != nil {
 			return nil
 		}
-		return []schema.ContentPart{schema.TextContent{Text: v}}
-	case []any:
-		parts := make([]schema.ContentPart, 0, len(v))
-		for _, p := range v {
-			mp, ok := p.(map[string]any)
-			if !ok {
-				continue
-			}
-			tp, _ := mp["type"].(string)
-			switch tp {
-			case "text":
-				text, _ := mp["text"].(string)
-				parts = append(parts, schema.TextContent{Text: text})
-			case "image_url":
-				imageURL, ok := mp["image_url"].(map[string]any)
-				if !ok {
-					continue
+		if s == "" {
+			return nil
+		}
+		return []schema.ContentPart{schema.TextContent{Text: s}}
+	case '[':
+		var partsWire []wireContentPart
+		if err := json.Unmarshal(raw, &partsWire); err != nil {
+			return nil
+		}
+		parts := make([]schema.ContentPart, 0, len(partsWire))
+		for _, p := range partsWire {
+			switch p.Type {
+			case wireContentTypeText, "":
+				if p.Text != "" {
+					parts = append(parts, schema.TextContent{Text: p.Text})
 				}
-				url, _ := imageURL["url"].(string)
-				detail, _ := imageURL["detail"].(string)
-				parts = append(parts, schema.ImageURLContent{URL: url, Detail: detail})
+			case wireContentTypeImageURL:
+				if p.ImageURL != nil {
+					parts = append(parts, schema.ImageURLContent{URL: p.ImageURL.URL, Detail: p.ImageURL.Detail})
+				}
 			}
 		}
 		return parts
@@ -138,7 +141,7 @@ func toWireTools(tools []schema.Tool) ([]wireTool, error) {
 			params = json.RawMessage(t.Function.Parameters)
 		}
 		out = append(out, wireTool{
-			Type: "function",
+			Type: wireToolTypeFunction,
 			Function: wireFunction{
 				Name:        t.Function.Name,
 				Description: t.Function.Description,
@@ -150,20 +153,17 @@ func toWireTools(tools []schema.Tool) ([]wireTool, error) {
 	return out, nil
 }
 
-func toWireToolChoice(tc schema.ToolChoice) any {
+func toWireToolChoice(tc schema.ToolChoice) *wireToolChoice {
 	switch tc.Mode {
 	case schema.ToolChoiceNone:
-		return "none"
+		return &wireToolChoice{Mode: wireToolChoiceNone}
 	case schema.ToolChoiceAuto:
-		return "auto"
+		return &wireToolChoice{Mode: wireToolChoiceAuto}
 	default:
 		if tc.FunctionName != "" {
-			var out wireToolChoiceFunction
-			out.Type = "function"
-			out.Function.Name = tc.FunctionName
-			return out
+			return &wireToolChoice{FunctionName: tc.FunctionName}
 		}
-		return "auto"
+		return &wireToolChoice{Mode: wireToolChoiceAuto}
 	}
 }
 
@@ -190,7 +190,7 @@ func toWireMessage(provider string, m schema.Message) (wireRequestMessage, error
 	if len(m.Content) > 0 {
 		if len(m.Content) == 1 {
 			if tp, ok := m.Content[0].(schema.TextContent); ok {
-				out.Content = tp.Text
+				out.Content = wireRequestText(tp.Text)
 				return out, nil
 			}
 		}
@@ -200,12 +200,12 @@ func toWireMessage(provider string, m schema.Message) (wireRequestMessage, error
 			switch part := p.(type) {
 			case schema.TextContent:
 				parts = append(parts, wireRequestContentPart{
-					Type: "text",
+					Type: wireContentTypeText,
 					Text: part.Text,
 				})
 			case schema.ImageURLContent:
 				parts = append(parts, wireRequestContentPart{
-					Type: "image_url",
+					Type: wireContentTypeImageURL,
 					ImageURL: &wireRequestImageURL{
 						URL:    part.URL,
 						Detail: strings.TrimSpace(part.Detail),
@@ -220,23 +220,19 @@ func toWireMessage(provider string, m schema.Message) (wireRequestMessage, error
 				}
 				dataURL := "data:" + part.MIMEType + ";base64," + base64.StdEncoding.EncodeToString(part.Data)
 				parts = append(parts, wireRequestContentPart{
-					Type: "image_url",
+					Type: wireContentTypeImageURL,
 					ImageURL: &wireRequestImageURL{
 						URL: dataURL,
 					},
 				})
 			default:
-				return wireRequestMessage{}, &llm.UnsupportedOptionError{
-					Provider: llm.Provider(provider),
-					Option:   "message.content",
-					Reason:   fmt.Sprintf("unsupported content part type %T", p),
-				}
+				return wireRequestMessage{}, fmt.Errorf("%s: unsupported message.content part type %T", provider, p)
 			}
 		}
-		out.Content = parts
+		out.Content = wireRequestParts(parts)
 		return out, nil
 	}
 
-	out.Content = ""
+	out.Content = wireRequestText("")
 	return out, nil
 }

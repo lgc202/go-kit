@@ -68,13 +68,13 @@ func New(cfg Config) (*Client, error) {
 
 	path := strings.TrimSpace(cfg.Path)
 	basePath := strings.TrimRight(u.Path, "/")
-	if path == "" || path == "/chat/completions" {
+	if path == "" || path == defaultChatCompletionsPath {
 		// If user passes a full endpoint URL like ".../chat/completions" (common copy/paste),
 		// avoid duplicating it when Path is omitted (or left as default).
-		if strings.HasSuffix(basePath, "/chat/completions") {
+		if strings.HasSuffix(basePath, defaultChatCompletionsPath) {
 			path = ""
 		} else if path == "" {
-			path = "/chat/completions"
+			path = defaultChatCompletionsPath
 		}
 	}
 	if path != "" && !strings.HasPrefix(path, "/") {
@@ -338,21 +338,17 @@ func (c *Client) parseError(statusCode int, body []byte) error {
 	// 尝试解析标准 OpenAI 兼容错误格式
 	var er errorResponse
 	if err := json.Unmarshal(body, &er); err == nil && er.Error.Message != "" {
-		return &llm.APIError{
-			Provider:   c.provider,
-			StatusCode: statusCode,
-			Message:    er.Error.Message,
-			Type:       er.Error.Type,
-			Code:       er.Error.Code,
+		if er.Error.Code != "" {
+			return fmt.Errorf("%s: http %d: %s (%s)", c.provider, statusCode, er.Error.Message, er.Error.Code)
 		}
+		return fmt.Errorf("%s: http %d: %s", c.provider, statusCode, er.Error.Message)
 	}
 
 	// 无法解析 JSON，返回原始响应体
-	return &llm.APIError{
-		Provider:   c.provider,
-		StatusCode: statusCode,
-		Body:       body,
+	if len(body) > 0 {
+		return fmt.Errorf("%s: http %d: %s", c.provider, statusCode, string(body))
 	}
+	return fmt.Errorf("%s: http %d", c.provider, statusCode)
 }
 
 // sanitizeHTTPError 清理 HTTP 客户端错误，防止泄露敏感信息

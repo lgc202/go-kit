@@ -1,5 +1,7 @@
 package openai_compat
 
+import "encoding/json"
+
 // OpenAI 兼容的 chat completion 接口类型定义
 type errorResponse struct {
 	Error struct {
@@ -11,8 +13,8 @@ type errorResponse struct {
 }
 
 type wireToolCall struct {
-	ID       string `json:"id"`
-	Type     string `json:"type"`
+	ID       string       `json:"id"`
+	Type     wireToolType `json:"type"`
 	Function struct {
 		Name      string `json:"name"`
 		Arguments string `json:"arguments"`
@@ -20,8 +22,8 @@ type wireToolCall struct {
 }
 
 type wireMessage struct {
-	Role    string `json:"role"`
-	Content any    `json:"content"`
+	Role    string          `json:"role"`
+	Content json.RawMessage `json:"content"`
 
 	Name string `json:"name,omitempty"`
 
@@ -78,4 +80,15 @@ type wireDelta struct {
 	ReasoningContent string `json:"reasoning_content,omitempty"`
 
 	ToolCalls []wireToolCall `json:"tool_calls,omitempty"`
+}
+
+type wireContentPart struct {
+	Type wireContentType `json:"type"`
+
+	Text string `json:"text,omitempty"`
+
+	ImageURL *struct {
+		URL    string `json:"url"`
+		Detail string `json:"detail,omitempty"`
+	} `json:"image_url,omitempty"`
 }
