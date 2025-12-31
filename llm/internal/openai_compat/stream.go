@@ -20,6 +20,8 @@ type stream struct {
 	done    bool
 }
 
+const sseDoneToken = "[DONE]"
+
 func newStream(provider string, adapter Adapter, body io.ReadCloser, keepRaw bool) *stream {
 	return &stream{
 		body:     body,
@@ -46,7 +48,7 @@ func (s *stream) Recv() (schema.StreamEvent, error) {
 			return schema.StreamEvent{}, err
 		}
 
-		if data == "[DONE]" {
+		if data == sseDoneToken {
 			s.done = true
 			return schema.StreamEvent{Type: schema.StreamEventDone}, nil
 		}

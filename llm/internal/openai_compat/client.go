@@ -17,6 +17,12 @@ import (
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
+const (
+	httpContentTypeJSON = "application/json"
+	httpAcceptJSON      = "application/json"
+	httpAcceptSSE       = "text/event-stream"
+)
+
 const maxErrorBodyBytes = 1 << 20
 
 type Config struct {
@@ -116,7 +122,7 @@ func (c *Client) Chat(ctx context.Context, messages []schema.Message, opts ...ll
 		return schema.ChatResponse{}, err
 	}
 
-	resp, err := c.doRequest(ctx, payload, reqCfg, "application/json")
+	resp, err := c.doRequest(ctx, payload, reqCfg, httpAcceptJSON)
 	if err != nil {
 		return schema.ChatResponse{}, err
 	}
@@ -138,7 +144,7 @@ func (c *Client) ChatStream(ctx context.Context, messages []schema.Message, opts
 		return nil, err
 	}
 
-	resp, err := c.doRequest(ctx, payload, reqCfg, "text/event-stream")
+	resp, err := c.doRequest(ctx, payload, reqCfg, httpAcceptSSE)
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +392,7 @@ func sanitizeHTTPError(err error) error {
 
 func (c *Client) applyHeaders(req *http.Request, cfg llm.RequestConfig) {
 	h := make(http.Header)
-	h.Set("Content-Type", "application/json")
+	h.Set("Content-Type", httpContentTypeJSON)
 
 	if c.defaultHeader != nil {
 		for k, vs := range c.defaultHeader {

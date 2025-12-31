@@ -114,8 +114,8 @@ llm.WithStop([]string{"\n", "END"})
 // 工具调用
 llm.WithTools(tool1, tool2)
 llm.WithToolChoice(schema.ToolChoice{Mode: "required"})  // 强制调用工具
-llm.WithToolChoice(schema.ToolChoice{Mode: "auto"})       // 由模型决定
-llm.WithToolChoice(schema.ToolChoice{Mode: "none"})       // 禁用工具调用
+llm.WithToolChoice(schema.ToolChoice{Mode: schema.ToolChoiceAuto}) // 由模型决定
+llm.WithToolChoice(schema.ToolChoice{Mode: schema.ToolChoiceNone}) // 禁用工具调用
 
 // 响应格式
 llm.WithResponseFormat(schema.ResponseFormat{Type: "json_object"})

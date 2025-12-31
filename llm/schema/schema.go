@@ -145,7 +145,6 @@ type Usage struct {
 
 	PromptCacheHitTokens  int `json:"prompt_cache_hit_tokens,omitempty"`  // DeepSeek
 	PromptCacheMissTokens int `json:"prompt_cache_miss_tokens,omitempty"` // DeepSeek
-	CachedTokens          int `json:"cached_tokens,omitempty"`            // Kimi
 
 	CompletionTokensDetails *CompletionTokensDetails `json:"completion_tokens_details,omitempty"` // OpenAI
 }
@@ -171,6 +170,9 @@ type ChatResponse struct {
 	// ServiceTier 返回实际使用的服务层级
 	ServiceTier *string `json:"service_tier,omitempty"`
 
+	// ExtraFields 是 provider 特定的扩展字段（通常由 adapter 从原始响应中提取并填充）。
+	ExtraFields map[string]any `json:"extra_fields,omitempty"`
+
 	// Raw 保留 provider 原生载荷，用于调试/向前兼容
 	Raw json.RawMessage `json:"raw,omitempty"`
 }
@@ -191,6 +193,9 @@ type StreamEvent struct {
 	ToolCalls    []ToolCall    `json:"tool_calls,omitempty"`
 	FinishReason *FinishReason `json:"finish_reason,omitempty"`
 	Usage        *Usage        `json:"usage,omitempty"`
+
+	// ExtraFields 是 provider 特定的扩展字段（通常由 adapter 从原始事件中提取并填充）。
+	ExtraFields map[string]any `json:"extra_fields,omitempty"`
 
 	Raw json.RawMessage `json:"raw,omitempty"`
 }

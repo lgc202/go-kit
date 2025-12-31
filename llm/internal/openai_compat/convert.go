@@ -11,13 +11,16 @@ import (
 )
 
 func toSchemaUsage(u usage) schema.Usage {
+	promptCacheHitTokens := u.PromptCacheHitTokens
+	if promptCacheHitTokens == 0 && u.CachedTokens != 0 {
+		promptCacheHitTokens = u.CachedTokens
+	}
 	out := schema.Usage{
 		PromptTokens:          u.PromptTokens,
 		CompletionTokens:      u.CompletionTokens,
 		TotalTokens:           u.TotalTokens,
-		PromptCacheHitTokens:  u.PromptCacheHitTokens,
+		PromptCacheHitTokens:  promptCacheHitTokens,
 		PromptCacheMissTokens: u.PromptCacheMissTokens,
-		CachedTokens:          u.CachedTokens,
 	}
 	if u.CompletionTokensDetails != nil && u.CompletionTokensDetails.ReasoningTokens != 0 {
 		out.CompletionTokensDetails = &schema.CompletionTokensDetails{
