@@ -89,20 +89,17 @@ deepseek.WithThinking(true)   // 启用推理（deepseek-reasoner 默认值）
 deepseek.WithThinking(false)  // 禁用推理
 
 // 流式选项
-deepseek.WithStreamIncludeUsage()  // 获取流式响应中的使用统计
-deepseek.WithStreamOptions(deepseek.StreamOptions{IncludeUsage: true})
+llm.WithStreamIncludeUsage()  // 获取流式响应中的使用统计
+llm.WithStreamOptions(schema.StreamOptions{IncludeUsage: true})
 ```
 
 #### 方式 2：通用 ExtraField（灵活）
 
 ```go
-// 使用导出的常量
-llm.WithExtraField(deepseek.ExtThinking, deepseek.Thinking{Type: deepseek.ThinkingTypeEnabled})
-llm.WithExtraField(deepseek.ExtStreamOptions, deepseek.StreamOptions{IncludeUsage: true})
-
-// 或直接使用 key（适用于未文档化/新字段）
-llm.WithExtraField("thinking", map[string]any{"type": "enabled"})
-llm.WithExtraField("new_beta_feature", value)
+// 直接使用 key（适用于未文档化/新字段）
+llm.WithExtraField("thinking", map[string]any{"type": "enabled"})  // 启用推理
+llm.WithExtraField("thinking", map[string]any{"type": "disabled"}) // 禁用推理
+llm.WithExtraField("new_beta_feature", value)                      // 新字段透传
 ```
 
 ### 标准选项（来自 `llm` 包）
@@ -297,7 +294,7 @@ for {
 stream, err := client.ChatStream(context.Background(), []schema.Message{
     schema.UserMessage("你好"),
 },
-    deepseek.WithStreamIncludeUsage(), // 在最终事件中获取使用统计
+    llm.WithStreamIncludeUsage(), // 在最终事件中获取使用统计
 )
 ```
 

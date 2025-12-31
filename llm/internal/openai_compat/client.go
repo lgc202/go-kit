@@ -292,10 +292,10 @@ func (c *Client) applyOptionalParams(req map[string]any, cfg llm.RequestConfig) 
 	if cfg.N != nil {
 		req["n"] = *cfg.N
 	}
-	if cfg.Metadata != nil && len(cfg.Metadata) > 0 {
+	if len(cfg.Metadata) > 0 {
 		req["metadata"] = cfg.Metadata
 	}
-	if cfg.LogitBias != nil && len(cfg.LogitBias) > 0 {
+	if len(cfg.LogitBias) > 0 {
 		req["logit_bias"] = cfg.LogitBias
 	}
 	if cfg.ServiceTier != nil {

@@ -7,10 +7,14 @@ import (
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
-// Adapter 定制 OpenAI 兼容的 ChatCompletions 方言差异
+// Adapter 定制 OpenAI 兼容的 ChatCompletions 差异
 //
 // 大多数 provider 可以使用 NoopAdapter，只有请求/响应存在差异的
-// Provider（如额外的请求字段）需要自定义 Adapter
+// Provider（如额外的请求字段）需要自定义 Adapter，如果不想实现所有接口，可以先嵌入 NoopAdapter，如
+//
+//	type adapter struct {
+//		openai_compat.NoopAdapter
+//	}
 type Adapter interface {
 	ApplyRequestExtensions(req map[string]any, cfg llm.RequestConfig) error
 	ParseError(provider string, statusCode int, body []byte) error
@@ -28,5 +32,5 @@ type NoopAdapter struct{}
 
 func (NoopAdapter) ApplyRequestExtensions(_ map[string]any, _ llm.RequestConfig) error { return nil }
 func (NoopAdapter) ParseError(_ string, _ int, _ []byte) error                         { return nil }
-func (NoopAdapter) EnrichResponse(_ *schema.ChatResponse, _ json.RawMessage) error    { return nil }
-func (NoopAdapter) EnrichStreamEvent(_ *schema.StreamEvent, _ json.RawMessage) error  { return nil }
+func (NoopAdapter) EnrichResponse(_ *schema.ChatResponse, _ json.RawMessage) error     { return nil }
+func (NoopAdapter) EnrichStreamEvent(_ *schema.StreamEvent, _ json.RawMessage) error   { return nil }
