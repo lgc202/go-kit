@@ -163,25 +163,27 @@ resp, err := client.Chat(context.Background(), []schema.Message{
 
 ### 流式输出推理内容
 
-在流式响应中分离推理内容和实际内容：
+在流式响应中分离推理内容和实际内容（使用 `ChatStream`）：
 
 ```go
-resp, err := client.Chat(context.Background(), []schema.Message{
+st, err := client.ChatStream(context.Background(), []schema.Message{
     schema.UserMessage("计算：15 * 23 - 47"),
 },
-    llm.WithStreamingReasoningFunc(
-        func(ctx context.Context, reasoningChunk, contentChunk []byte) error {
-            if len(reasoningChunk) > 0 {
-                fmt.Printf("[思考] %s", reasoningChunk)
-            }
-            if len(contentChunk) > 0 {
-                fmt.Printf("[内容] %s", contentChunk)
-            }
-            return nil
-        },
-    ),
     deepseek.WithThinking(true),
 )
+
+for {
+    ev, err := st.Recv()
+    if err != nil {
+        break
+    }
+    if len(ev.Reasoning) > 0 {
+        fmt.Printf("[思考] %s", ev.Reasoning)
+    }
+    if len(ev.Delta) > 0 {
+        fmt.Printf("[内容] %s", ev.Delta)
+    }
+}
 ```
 
 ## 工具/函数调用

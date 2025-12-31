@@ -1,7 +1,6 @@
 package llm
 
 import (
-	"context"
 	"maps"
 	"net/http"
 	"slices"
@@ -135,14 +134,6 @@ type RequestConfig struct {
 	// 为 true 时，schema.ChatResponse.Raw 和 schema.StreamEvent.Raw 会包含原始响应
 	// 默认为 false 以减少内存占用
 	KeepRaw bool
-
-	// StreamingFunc 是流式输出回调（客户端使用，不发送到 provider）
-	// 由上层封装在使用流式 API 时调用
-	StreamingFunc func(ctx context.Context, chunk []byte) error
-
-	// StreamingReasoningFunc 是推理内容的流式回调（客户端使用，不发送到 provider）
-	// 用于分离推理内容和实际内容的流式输出
-	StreamingReasoningFunc func(ctx context.Context, reasoningChunk, chunk []byte) error
 }
 
 // ApplyRequestOptions 将选项应用到一个新的 RequestConfig 上，返回配置结果。
@@ -425,19 +416,5 @@ func WithAllowExtraFieldOverride(enabled bool) RequestOption {
 func WithKeepRaw(enabled bool) RequestOption {
 	return func(c *RequestConfig) {
 		c.KeepRaw = enabled
-	}
-}
-
-// WithStreamingFunc 设置流式输出回调（客户端使用）
-func WithStreamingFunc(f func(ctx context.Context, chunk []byte) error) RequestOption {
-	return func(c *RequestConfig) {
-		c.StreamingFunc = f
-	}
-}
-
-// WithStreamingReasoningFunc 设置推理内容的流式回调（客户端使用）
-func WithStreamingReasoningFunc(f func(ctx context.Context, reasoningChunk, chunk []byte) error) RequestOption {
-	return func(c *RequestConfig) {
-		c.StreamingReasoningFunc = f
 	}
 }

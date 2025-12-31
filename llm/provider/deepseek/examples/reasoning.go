@@ -80,7 +80,7 @@ func ReasoningDisabled() error {
 	return nil
 }
 
-// ReasoningStreaming demonstrates streaming with separate reasoning callback.
+// ReasoningStreaming demonstrates streaming and splitting reasoning/content.
 func ReasoningStreaming() error {
 	apiKey := os.Getenv("DEEPSEEK_API_KEY")
 	if apiKey == "" {
@@ -95,29 +95,29 @@ func ReasoningStreaming() error {
 		return err
 	}
 
-	resp, err := client.Chat(context.Background(), []schema.Message{
+	st, err := client.ChatStream(context.Background(), []schema.Message{
 		schema.UserMessage("Solve: 15 * 23 - 47"),
 	},
-		llm.WithStreamingReasoningFunc(
-			func(ctx context.Context, reasoningChunk, contentChunk []byte) error {
-				if len(reasoningChunk) > 0 {
-					fmt.Printf("\033[90m[Reasoning] %s\033[0m", reasoningChunk)
-				}
-				if len(contentChunk) > 0 {
-					fmt.Printf("[Content] %s", contentChunk)
-				}
-				return nil
-			},
-		),
 		deepseek.WithThinking(true),
 	)
 	if err != nil {
 		return err
 	}
+	defer st.Close()
 
-	if len(resp.Choices) > 0 {
-		fmt.Println("\nFinal:", resp.Choices[0].Message.Text())
+	for {
+		ev, err := st.Recv()
+		if err != nil {
+			break
+		}
+		if len(ev.Reasoning) > 0 {
+			fmt.Printf("\033[90m[Reasoning] %s\033[0m", ev.Reasoning)
+		}
+		if len(ev.Delta) > 0 {
+			fmt.Printf("[Content] %s", ev.Delta)
+		}
 	}
+	fmt.Println()
 
 	return nil
 }
