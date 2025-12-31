@@ -3,7 +3,6 @@ package openai_compat
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,11 +13,12 @@ import (
 	"net/url"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/lgc202/go-kit/llm"
 	"github.com/lgc202/go-kit/llm/schema"
 )
+
+const maxErrorBodyBytes = 1 << 20
 
 type Config struct {
 	Provider llm.Provider
@@ -163,7 +163,7 @@ func (c *Client) doRequest(ctx context.Context, payload map[string]any, cfg llm.
 	// 检查 HTTP 状态码
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		defer resp.Body.Close()
-		respBytes, rerr := io.ReadAll(resp.Body)
+		respBytes, rerr := readLimited(resp.Body, maxErrorBodyBytes)
 		if rerr != nil {
 			return nil, fmt.Errorf("%s: http %d (also failed to read error body: %v)", c.provider, resp.StatusCode, rerr)
 		}
@@ -187,7 +187,7 @@ func (c *Client) parseChatResponse(resp *http.Response, cfg llm.RequestConfig) (
 	if err := json.NewDecoder(resp.Body).Decode(&in); err != nil {
 		return schema.ChatResponse{}, fmt.Errorf("%s: decode response: %w", c.provider, err)
 	}
-	return c.mapChatResponseStruct(in), nil
+	return toSchemaChatResponse(in), nil
 }
 
 func (c *Client) buildChatRequest(messages []schema.Message, cfg llm.RequestConfig, stream bool) (map[string]any, error) {
@@ -268,14 +268,14 @@ func (c *Client) applyTokenParams(req map[string]any, cfg llm.RequestConfig) {
 // applyToolParams 应用工具调用相关参数
 func (c *Client) applyToolParams(req map[string]any, cfg llm.RequestConfig) error {
 	if len(cfg.Tools) > 0 {
-		tools, err := mapTools(cfg.Tools)
+		tools, err := toWireTools(cfg.Tools)
 		if err != nil {
 			return err
 		}
 		req["tools"] = tools
 	}
 	if cfg.ToolChoice != nil {
-		req["tool_choice"] = mapToolChoice(*cfg.ToolChoice)
+		req["tool_choice"] = toWireToolChoice(*cfg.ToolChoice)
 	}
 	if cfg.ParallelToolCalls != nil {
 		req["parallel_tool_calls"] = *cfg.ParallelToolCalls
@@ -310,7 +310,7 @@ func (c *Client) applyOptionalParams(req map[string]any, cfg llm.RequestConfig) 
 		req["user"] = *cfg.User
 	}
 	if cfg.ResponseFormat != nil {
-		rf, err := mapResponseFormat(*cfg.ResponseFormat)
+		rf, err := toWireResponseFormat(*cfg.ResponseFormat)
 		if err != nil {
 			return err
 		}
@@ -363,132 +363,7 @@ func (c *Client) mapMessages(messages []schema.Message) ([]map[string]any, error
 }
 
 func (c *Client) mapRequestMessage(m schema.Message) (map[string]any, error) {
-	out := map[string]any{
-		"role": string(m.Role),
-	}
-	if m.Name != "" {
-		out["name"] = m.Name
-	}
-	if m.ToolCallID != "" {
-		out["tool_call_id"] = m.ToolCallID
-	}
-
-	if len(m.Content) > 0 {
-		if len(m.Content) == 1 {
-			if tp, ok := m.Content[0].(schema.TextContent); ok {
-				out["content"] = tp.Text
-				return out, nil
-			}
-		}
-
-		parts := make([]map[string]any, 0, len(m.Content))
-		for _, p := range m.Content {
-			switch part := p.(type) {
-			case schema.TextContent:
-				parts = append(parts, map[string]any{
-					"type": "text",
-					"text": part.Text,
-				})
-			case schema.ImageURLContent:
-				imageURL := map[string]any{
-					"url": part.URL,
-				}
-				if strings.TrimSpace(part.Detail) != "" {
-					imageURL["detail"] = part.Detail
-				}
-				parts = append(parts, map[string]any{
-					"type":      "image_url",
-					"image_url": imageURL,
-				})
-			case schema.BinaryContent:
-				if strings.TrimSpace(part.MIMEType) == "" {
-					return nil, fmt.Errorf("%s: binary mime type required", c.provider)
-				}
-				if len(part.Data) == 0 {
-					return nil, fmt.Errorf("%s: binary data required", c.provider)
-				}
-				dataURL := "data:" + part.MIMEType + ";base64," + base64.StdEncoding.EncodeToString(part.Data)
-				parts = append(parts, map[string]any{
-					"type": "image_url",
-					"image_url": map[string]any{
-						"url": dataURL,
-					},
-				})
-			default:
-				return nil, &llm.UnsupportedOptionError{
-					Provider: llm.Provider(c.provider),
-					Option:   "message.content",
-					Reason:   fmt.Sprintf("unsupported content part type %T", p),
-				}
-			}
-		}
-		out["content"] = parts
-		return out, nil
-	}
-
-	out["content"] = ""
-	return out, nil
-}
-
-func mapTools(tools []schema.Tool) ([]map[string]any, error) {
-	out := make([]map[string]any, 0, len(tools))
-	for _, t := range tools {
-		if t.Type != schema.ToolTypeFunction {
-			continue
-		}
-		fn := map[string]any{
-			"name": t.Function.Name,
-		}
-		if t.Function.Description != "" {
-			fn["description"] = t.Function.Description
-		}
-		if len(t.Function.Parameters) > 0 {
-			if !json.Valid(t.Function.Parameters) {
-				return nil, fmt.Errorf("openai_compat: invalid tool parameters JSON for %q", t.Function.Name)
-			}
-			fn["parameters"] = json.RawMessage(t.Function.Parameters)
-		}
-		if t.Function.Strict {
-			fn["strict"] = true
-		}
-		out = append(out, map[string]any{
-			"type":     "function",
-			"function": fn,
-		})
-	}
-	return out, nil
-}
-
-func mapToolChoice(tc schema.ToolChoice) any {
-	switch tc.Mode {
-	case schema.ToolChoiceNone:
-		return "none"
-	case schema.ToolChoiceAuto:
-		return "auto"
-	default:
-		if tc.FunctionName != "" {
-			return map[string]any{
-				"type": "function",
-				"function": map[string]any{
-					"name": tc.FunctionName,
-				},
-			}
-		}
-		return "auto"
-	}
-}
-
-func mapResponseFormat(rf schema.ResponseFormat) (map[string]any, error) {
-	out := map[string]any{
-		"type": rf.Type,
-	}
-	if len(rf.JSONSchema) > 0 {
-		if !json.Valid(rf.JSONSchema) {
-			return nil, fmt.Errorf("openai_compat: invalid response_format.json_schema JSON")
-		}
-		out["json_schema"] = json.RawMessage(rf.JSONSchema)
-	}
-	return out, nil
+	return toWireMessage(c.provider, m)
 }
 
 func (c *Client) mapChatResponseBytes(raw []byte, keepRaw bool) (schema.ChatResponse, error) {
@@ -497,7 +372,7 @@ func (c *Client) mapChatResponseBytes(raw []byte, keepRaw bool) (schema.ChatResp
 		return schema.ChatResponse{}, fmt.Errorf("%s: decode response: %w", c.provider, err)
 	}
 
-	out := c.mapChatResponseStruct(in)
+	out := toSchemaChatResponse(in)
 	if keepRaw {
 		out.Raw = json.RawMessage(raw)
 	}
@@ -510,111 +385,6 @@ func (c *Client) mapChatResponseBytes(raw []byte, keepRaw bool) (schema.ChatResp
 	}
 
 	return out, nil
-}
-
-func (c *Client) mapChatResponseStruct(in chatCompletionResponse) schema.ChatResponse {
-	out := schema.ChatResponse{
-		ID:    in.ID,
-		Model: in.Model,
-		Usage: schema.Usage{
-			PromptTokens:          in.Usage.PromptTokens,
-			CompletionTokens:      in.Usage.CompletionTokens,
-			TotalTokens:           in.Usage.TotalTokens,
-			PromptCacheHitTokens:  in.Usage.PromptCacheHitTokens,
-			PromptCacheMissTokens: in.Usage.PromptCacheMissTokens,
-			CachedTokens:          in.Usage.CachedTokens,
-		},
-		ServiceTier: in.ServiceTier,
-	}
-	if in.Usage.CompletionTokensDetails != nil && in.Usage.CompletionTokensDetails.ReasoningTokens != 0 {
-		out.Usage.CompletionTokensDetails = &schema.CompletionTokensDetails{
-			ReasoningTokens: in.Usage.CompletionTokensDetails.ReasoningTokens,
-		}
-	}
-	if in.Created != 0 {
-		out.CreatedAt = time.Unix(in.Created, 0)
-	}
-
-	out.Choices = make([]schema.Choice, 0, len(in.Choices))
-	for _, c0 := range in.Choices {
-		out.Choices = append(out.Choices, schema.Choice{
-			Index:        c0.Index,
-			Message:      mapWireMessage(c0.Message),
-			FinishReason: schema.FinishReason(c0.FinishReason),
-		})
-	}
-	return out
-}
-
-func mapWireMessage(m wireMessage) schema.Message {
-	parts := normalizeWireContent(m.Content)
-	out := schema.Message{
-		Role:             schema.Role(m.Role),
-		Content:          parts,
-		Name:             m.Name,
-		ToolCallID:       m.ToolCallID,
-		ReasoningContent: m.ReasoningContent,
-	}
-
-	if len(m.ToolCalls) > 0 {
-		out.ToolCalls = make([]schema.ToolCall, 0, len(m.ToolCalls))
-		for _, tc := range m.ToolCalls {
-			out.ToolCalls = append(out.ToolCalls, schema.ToolCall{
-				ID:   tc.ID,
-				Type: schema.ToolCallType(tc.Type),
-				Function: schema.ToolFunction{
-					Name:      tc.Function.Name,
-					Arguments: tc.Function.Arguments,
-				},
-			})
-		}
-	}
-
-	return out
-}
-
-type wireContentPart struct {
-	Type string `json:"type"`
-
-	Text string `json:"text,omitempty"`
-
-	ImageURL *struct {
-		URL    string `json:"url"`
-		Detail string `json:"detail,omitempty"`
-	} `json:"image_url,omitempty"`
-}
-
-func normalizeWireContent(in any) []schema.ContentPart {
-	switch v := in.(type) {
-	case string:
-		if v == "" {
-			return nil
-		}
-		return []schema.ContentPart{schema.TextContent{Text: v}}
-	case []any:
-		parts := make([]schema.ContentPart, 0, len(v))
-		for _, p := range v {
-			b, err := json.Marshal(p)
-			if err != nil {
-				continue
-			}
-			var wp wireContentPart
-			if err := json.Unmarshal(b, &wp); err != nil {
-				continue
-			}
-			switch wp.Type {
-			case "text":
-				parts = append(parts, schema.TextContent{Text: wp.Text})
-			case "image_url":
-				if wp.ImageURL != nil {
-					parts = append(parts, schema.ImageURLContent{URL: wp.ImageURL.URL, Detail: wp.ImageURL.Detail})
-				}
-			}
-		}
-		return parts
-	default:
-		return nil
-	}
 }
 
 // parseError 解析 API 错误响应
@@ -656,23 +426,23 @@ func sanitizeHTTPError(err error) error {
 
 	// 检查 context 超时
 	if errors.Is(err, context.DeadlineExceeded) {
-		return fmt.Errorf("request timeout: API call exceeded deadline")
+		return errors.New("request timeout: API call exceeded deadline")
 	}
 
 	// 检查 context 取消
 	if errors.Is(err, context.Canceled) {
-		return fmt.Errorf("request cancelled")
+		return errors.New("request cancelled")
 	}
 
 	// 检查网络超时错误
 	var netErr net.Error
 	if errors.As(err, &netErr) && netErr.Timeout() {
-		return fmt.Errorf("request timeout: network operation exceeded timeout")
+		return errors.New("request timeout: network operation exceeded timeout")
 	}
 
 	// 对于其他网络错误，提供通用消息而不暴露细节
 	if _, ok := err.(net.Error); ok {
-		return fmt.Errorf("network error: failed to reach API server")
+		return errors.New("network error: failed to reach API server")
 	}
 
 	// 如果不是敏感类型，返回原始错误
@@ -680,31 +450,40 @@ func sanitizeHTTPError(err error) error {
 }
 
 func (c *Client) applyHeaders(req *http.Request, cfg llm.RequestConfig) {
-	req.Header.Set("Content-Type", "application/json")
-
-	if c.apiKey != "" && req.Header.Get("Authorization") == "" {
-		req.Header.Set("Authorization", "Bearer "+c.apiKey)
-	}
+	h := make(http.Header)
+	h.Set("Content-Type", "application/json")
 
 	if c.defaultHeader != nil {
 		for k, vs := range c.defaultHeader {
-			for _, v := range vs {
-				req.Header.Add(k, v)
-			}
+			h[k] = slices.Clone(vs)
 		}
 	}
 	if cfg.Headers != nil {
 		for k, vs := range cfg.Headers {
-			req.Header.Del(k)
-			for _, v := range vs {
-				req.Header.Add(k, v)
-			}
+			h[k] = slices.Clone(vs)
 		}
 	}
+
+	// 默认使用 apiKey，但允许 DefaultHeaders / request-level headers 自行覆盖 Authorization。
+	if c.apiKey != "" && h.Get("Authorization") == "" {
+		h.Set("Authorization", "Bearer "+c.apiKey)
+	}
+
+	req.Header = h
 }
 
 func (c *Client) endpoint() string {
-	u := *c.baseURL
-	u.Path = strings.TrimRight(u.Path, "/") + c.path
-	return u.String()
+	return c.baseURL.JoinPath(strings.TrimPrefix(c.path, "/")).String()
+}
+
+func readLimited(r io.Reader, maxBytes int64) ([]byte, error) {
+	lr := io.LimitReader(r, maxBytes+1)
+	b, err := io.ReadAll(lr)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(b)) > maxBytes {
+		return b[:maxBytes], nil
+	}
+	return b, nil
 }

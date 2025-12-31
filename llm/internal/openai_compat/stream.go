@@ -3,6 +3,7 @@ package openai_compat
 import (
 	"encoding/json"
 	"io"
+	"slices"
 
 	"github.com/lgc202/go-kit/llm/schema"
 )
@@ -50,8 +51,17 @@ func (s *stream) Recv() (schema.StreamEvent, error) {
 			return schema.StreamEvent{Type: schema.StreamEventDone}, nil
 		}
 
+		rawBytes := []byte(data)
+		var raw json.RawMessage
+		if s.keepRaw || s.adapter != nil {
+			raw = json.RawMessage(rawBytes)
+			if s.keepRaw {
+				raw = json.RawMessage(slices.Clone(rawBytes))
+			}
+		}
+
 		var chunk chatCompletionChunk
-		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+		if err := json.Unmarshal(rawBytes, &chunk); err != nil {
 			return schema.StreamEvent{}, err
 		}
 
@@ -66,21 +76,9 @@ func (s *stream) Recv() (schema.StreamEvent, error) {
 					Delta:       d.Content,
 					Reasoning:   d.ReasoningContent,
 				}
-				if len(d.ToolCalls) > 0 {
-					ev.ToolCalls = make([]schema.ToolCall, 0, len(d.ToolCalls))
-					for _, tc := range d.ToolCalls {
-						ev.ToolCalls = append(ev.ToolCalls, schema.ToolCall{
-							ID:   tc.ID,
-							Type: schema.ToolCallType(tc.Type),
-							Function: schema.ToolFunction{
-								Name:      tc.Function.Name,
-								Arguments: tc.Function.Arguments,
-							},
-						})
-					}
-				}
+				ev.ToolCalls = toSchemaToolCalls(d.ToolCalls)
 				if s.keepRaw {
-					ev.Raw = json.RawMessage([]byte(data))
+					ev.Raw = raw
 				}
 				mapped = append(mapped, ev)
 			}
@@ -93,22 +91,10 @@ func (s *stream) Recv() (schema.StreamEvent, error) {
 					FinishReason: &fr,
 				}
 				if s.keepRaw {
-					ev.Raw = json.RawMessage([]byte(data))
+					ev.Raw = raw
 				}
 				if chunk.Usage != nil {
-					ev.Usage = &schema.Usage{
-						PromptTokens:          chunk.Usage.PromptTokens,
-						CompletionTokens:      chunk.Usage.CompletionTokens,
-						TotalTokens:           chunk.Usage.TotalTokens,
-						PromptCacheHitTokens:  chunk.Usage.PromptCacheHitTokens,
-						PromptCacheMissTokens: chunk.Usage.PromptCacheMissTokens,
-						CachedTokens:          chunk.Usage.CachedTokens,
-					}
-					if chunk.Usage.CompletionTokensDetails != nil && chunk.Usage.CompletionTokensDetails.ReasoningTokens != 0 {
-						ev.Usage.CompletionTokensDetails = &schema.CompletionTokensDetails{
-							ReasoningTokens: chunk.Usage.CompletionTokensDetails.ReasoningTokens,
-						}
-					}
+					ev.Usage = toSchemaUsagePtr(chunk.Usage)
 				}
 				mapped = append(mapped, ev)
 			}
@@ -116,26 +102,16 @@ func (s *stream) Recv() (schema.StreamEvent, error) {
 
 		if len(mapped) == 0 && chunk.Usage != nil {
 			mapped = append(mapped, schema.StreamEvent{
-				Type: schema.StreamEventDelta,
-				Usage: &schema.Usage{
-					PromptTokens:          chunk.Usage.PromptTokens,
-					CompletionTokens:      chunk.Usage.CompletionTokens,
-					TotalTokens:           chunk.Usage.TotalTokens,
-					PromptCacheHitTokens:  chunk.Usage.PromptCacheHitTokens,
-					PromptCacheMissTokens: chunk.Usage.PromptCacheMissTokens,
-					CachedTokens:          chunk.Usage.CachedTokens,
-				},
+				Type:  schema.StreamEventDelta,
+				Usage: toSchemaUsagePtr(chunk.Usage),
 			})
-			if u := mapped[len(mapped)-1].Usage; u != nil && chunk.Usage.CompletionTokensDetails != nil && chunk.Usage.CompletionTokensDetails.ReasoningTokens != 0 {
-				u.CompletionTokensDetails = &schema.CompletionTokensDetails{
-					ReasoningTokens: chunk.Usage.CompletionTokensDetails.ReasoningTokens,
-				}
+			if s.keepRaw {
+				mapped[len(mapped)-1].Raw = raw
 			}
 		}
 
 		// 调用 adapter 丰富流式事件
 		if s.adapter != nil {
-			raw := json.RawMessage([]byte(data))
 			for i := range mapped {
 				if err := s.adapter.EnrichStreamEvent(&mapped[i], raw); err != nil {
 					return schema.StreamEvent{}, err
