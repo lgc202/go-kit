@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net"
 	"net/http"
 	"net/url"
@@ -141,7 +140,7 @@ func (c *Client) ChatStream(ctx context.Context, messages []schema.Message, opts
 }
 
 // doRequest 执行 HTTP 请求
-func (c *Client) doRequest(ctx context.Context, payload map[string]any, cfg llm.RequestConfig, accept string) (*http.Response, error) {
+func (c *Client) doRequest(ctx context.Context, payload any, cfg llm.RequestConfig, accept string) (*http.Response, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("%s: marshal request: %w", c.provider, err)
@@ -190,180 +189,113 @@ func (c *Client) parseChatResponse(resp *http.Response, cfg llm.RequestConfig) (
 	return toSchemaChatResponse(in), nil
 }
 
-func (c *Client) buildChatRequest(messages []schema.Message, cfg llm.RequestConfig, stream bool) (map[string]any, error) {
+func (c *Client) buildChatRequest(messages []schema.Message, cfg llm.RequestConfig, stream bool) (chatCompletionRequest, error) {
 	// 验证必需参数
 	if len(messages) == 0 {
-		return nil, fmt.Errorf("%s: messages required", c.provider)
+		return chatCompletionRequest{}, fmt.Errorf("%s: messages required", c.provider)
 	}
 	if strings.TrimSpace(cfg.Model) == "" {
-		return nil, fmt.Errorf("%s: model required (use llm.WithModel)", c.provider)
+		return chatCompletionRequest{}, fmt.Errorf("%s: model required (use llm.WithModel)", c.provider)
 	}
 
 	// 构建消息列表
 	reqMsgs, err := c.mapMessages(messages)
 	if err != nil {
-		return nil, err
+		return chatCompletionRequest{}, err
 	}
 
-	// 构建基础请求
-	req := map[string]any{
-		"model":    cfg.Model,
-		"messages": reqMsgs,
-		"stream":   stream,
+	req := chatCompletionRequest{
+		provider: c.provider,
+		Model:    cfg.Model,
+		Messages: reqMsgs,
+		Stream:   stream,
 	}
 
-	// 应用采样参数
-	c.applySamplingParams(req, cfg)
+	// sampling
+	req.Temperature = cfg.Temperature
+	req.TopP = cfg.TopP
+	req.FrequencyPenalty = cfg.FrequencyPenalty
+	req.PresencePenalty = cfg.PresencePenalty
+	req.Seed = cfg.Seed
 
-	// 应用 token 限制参数
-	c.applyTokenParams(req, cfg)
-
-	// 应用工具调用参数
-	if err := c.applyToolParams(req, cfg); err != nil {
-		return nil, err
+	// tokens
+	if cfg.MaxCompletionTokens != nil {
+		req.MaxCompletionTokens = cfg.MaxCompletionTokens
+	} else {
+		req.MaxTokens = cfg.MaxTokens
 	}
 
-	// 应用其他可选参数
-	if err := c.applyOptionalParams(req, cfg); err != nil {
-		return nil, err
+	// tools
+	if len(cfg.Tools) > 0 {
+		tools, err := toWireTools(cfg.Tools)
+		if err != nil {
+			return chatCompletionRequest{}, err
+		}
+		req.Tools = tools
+	}
+	if cfg.ToolChoice != nil {
+		req.ToolChoice = toWireToolChoice(*cfg.ToolChoice)
+	}
+	req.ParallelToolCalls = cfg.ParallelToolCalls
+
+	// optional
+	if cfg.Stop != nil {
+		req.Stop = *cfg.Stop
+	}
+	req.Logprobs = cfg.Logprobs
+	req.TopLogprobs = cfg.TopLogprobs
+	req.N = cfg.N
+	if len(cfg.Metadata) > 0 {
+		req.Metadata = cfg.Metadata
+	}
+	if len(cfg.LogitBias) > 0 {
+		req.LogitBias = cfg.LogitBias
+	}
+	req.ServiceTier = cfg.ServiceTier
+	req.User = cfg.User
+
+	if cfg.ResponseFormat != nil {
+		rf, err := toWireResponseFormat(*cfg.ResponseFormat)
+		if err != nil {
+			return chatCompletionRequest{}, err
+		}
+		req.ResponseFormat = rf
+	}
+	if cfg.StreamOptions != nil {
+		data, err := json.Marshal(cfg.StreamOptions)
+		if err != nil {
+			return chatCompletionRequest{}, fmt.Errorf("%s: marshal stream_options: %w", c.provider, err)
+		}
+		if !bytes.Equal(data, []byte("{}")) && !bytes.Equal(data, []byte("null")) {
+			req.StreamOptions = json.RawMessage(data)
+		}
 	}
 
-	// 应用 provider 特定扩展
-	if err := c.applyProviderExtensions(req, cfg); err != nil {
-		return nil, err
+	// ExtraFields merged at marshal-time (with conflict checks).
+	req.extra = cfg.ExtraFields
+	req.allowExtraFieldOverride = cfg.AllowExtraFieldOverride
+
+	// provider-specific extensions
+	if c.adapter != nil {
+		if err := c.adapter.ApplyRequestExtensions(&req, cfg); err != nil {
+			return chatCompletionRequest{}, err
+		}
 	}
 
 	return req, nil
 }
 
-// applySamplingParams 应用采样相关参数（温度、top_p、惩罚等）
-func (c *Client) applySamplingParams(req map[string]any, cfg llm.RequestConfig) {
-	if cfg.Temperature != nil {
-		req["temperature"] = *cfg.Temperature
-	}
-	if cfg.TopP != nil {
-		req["top_p"] = *cfg.TopP
-	}
-	if cfg.FrequencyPenalty != nil {
-		req["frequency_penalty"] = *cfg.FrequencyPenalty
-	}
-	if cfg.PresencePenalty != nil {
-		req["presence_penalty"] = *cfg.PresencePenalty
-	}
-	if cfg.Seed != nil {
-		req["seed"] = *cfg.Seed
-	}
-}
-
-// applyTokenParams 应用 token 限制参数
-func (c *Client) applyTokenParams(req map[string]any, cfg llm.RequestConfig) {
-	// 优先使用 max_completion_tokens，如果没有则使用 max_tokens
-	if cfg.MaxCompletionTokens != nil {
-		req["max_completion_tokens"] = *cfg.MaxCompletionTokens
-	} else if cfg.MaxTokens != nil {
-		req["max_tokens"] = *cfg.MaxTokens
-	}
-}
-
-// applyToolParams 应用工具调用相关参数
-func (c *Client) applyToolParams(req map[string]any, cfg llm.RequestConfig) error {
-	if len(cfg.Tools) > 0 {
-		tools, err := toWireTools(cfg.Tools)
-		if err != nil {
-			return err
-		}
-		req["tools"] = tools
-	}
-	if cfg.ToolChoice != nil {
-		req["tool_choice"] = toWireToolChoice(*cfg.ToolChoice)
-	}
-	if cfg.ParallelToolCalls != nil {
-		req["parallel_tool_calls"] = *cfg.ParallelToolCalls
-	}
-	return nil
-}
-
-// applyOptionalParams 应用其他可选参数
-func (c *Client) applyOptionalParams(req map[string]any, cfg llm.RequestConfig) error {
-	if cfg.Stop != nil {
-		req["stop"] = *cfg.Stop
-	}
-	if cfg.Logprobs != nil {
-		req["logprobs"] = *cfg.Logprobs
-	}
-	if cfg.TopLogprobs != nil {
-		req["top_logprobs"] = *cfg.TopLogprobs
-	}
-	if cfg.N != nil {
-		req["n"] = *cfg.N
-	}
-	if len(cfg.Metadata) > 0 {
-		req["metadata"] = cfg.Metadata
-	}
-	if len(cfg.LogitBias) > 0 {
-		req["logit_bias"] = cfg.LogitBias
-	}
-	if cfg.ServiceTier != nil {
-		req["service_tier"] = *cfg.ServiceTier
-	}
-	if cfg.User != nil {
-		req["user"] = *cfg.User
-	}
-	if cfg.ResponseFormat != nil {
-		rf, err := toWireResponseFormat(*cfg.ResponseFormat)
-		if err != nil {
-			return err
-		}
-		req["response_format"] = rf
-	}
-	if cfg.StreamOptions != nil {
-		data, err := json.Marshal(cfg.StreamOptions)
-		if err != nil {
-			return fmt.Errorf("%s: marshal stream_options: %w", c.provider, err)
-		}
-		// 只在非零值时才添加，避免发送 null
-		if !bytes.Equal(data, []byte("{}")) && !bytes.Equal(data, []byte("null")) {
-			req["stream_options"] = json.RawMessage(data)
-		}
-	}
-	if cfg.ExtraFields != nil {
-		if cfg.AllowExtraFieldOverride {
-			maps.Copy(req, cfg.ExtraFields)
-		} else {
-			for k, v := range cfg.ExtraFields {
-				if _, exists := req[k]; exists {
-					return fmt.Errorf("%s: extra field %q conflicts with a built-in option (set llm.WithAllowExtraFieldOverride(true) to override)", c.provider, k)
-				}
-				req[k] = v
-			}
-		}
-	}
-	return nil
-}
-
-// applyProviderExtensions 应用 provider 特定的扩展
-func (c *Client) applyProviderExtensions(req map[string]any, cfg llm.RequestConfig) error {
-	if c.adapter != nil {
-		return c.adapter.ApplyRequestExtensions(req, cfg)
-	}
-	return nil
-}
-
 // mapMessages 将 schema.Message 列表转换为请求格式
-func (c *Client) mapMessages(messages []schema.Message) ([]map[string]any, error) {
-	reqMsgs := make([]map[string]any, 0, len(messages))
+func (c *Client) mapMessages(messages []schema.Message) ([]wireRequestMessage, error) {
+	reqMsgs := make([]wireRequestMessage, 0, len(messages))
 	for _, m := range messages {
-		wm, err := c.mapRequestMessage(m)
+		wm, err := toWireMessage(c.provider, m)
 		if err != nil {
 			return nil, err
 		}
 		reqMsgs = append(reqMsgs, wm)
 	}
 	return reqMsgs, nil
-}
-
-func (c *Client) mapRequestMessage(m schema.Message) (map[string]any, error) {
-	return toWireMessage(c.provider, m)
 }
 
 func (c *Client) mapChatResponseBytes(raw []byte, keepRaw bool) (schema.ChatResponse, error) {

@@ -124,30 +124,27 @@ func toSchemaContentParts(in any) []schema.ContentPart {
 	}
 }
 
-func toWireTools(tools []schema.Tool) ([]map[string]any, error) {
-	out := make([]map[string]any, 0, len(tools))
+func toWireTools(tools []schema.Tool) ([]wireTool, error) {
+	out := make([]wireTool, 0, len(tools))
 	for _, t := range tools {
 		if t.Type != schema.ToolTypeFunction {
 			continue
 		}
-		fn := map[string]any{
-			"name": t.Function.Name,
-		}
-		if t.Function.Description != "" {
-			fn["description"] = t.Function.Description
-		}
+		var params json.RawMessage
 		if len(t.Function.Parameters) > 0 {
 			if !json.Valid(t.Function.Parameters) {
 				return nil, fmt.Errorf("openai_compat: invalid tool parameters JSON for %q", t.Function.Name)
 			}
-			fn["parameters"] = json.RawMessage(t.Function.Parameters)
+			params = json.RawMessage(t.Function.Parameters)
 		}
-		if t.Function.Strict {
-			fn["strict"] = true
-		}
-		out = append(out, map[string]any{
-			"type":     "function",
-			"function": fn,
+		out = append(out, wireTool{
+			Type: "function",
+			Function: wireFunction{
+				Name:        t.Function.Name,
+				Description: t.Function.Description,
+				Parameters:  params,
+				Strict:      t.Function.Strict,
+			},
 		})
 	}
 	return out, nil
@@ -161,94 +158,85 @@ func toWireToolChoice(tc schema.ToolChoice) any {
 		return "auto"
 	default:
 		if tc.FunctionName != "" {
-			return map[string]any{
-				"type": "function",
-				"function": map[string]any{
-					"name": tc.FunctionName,
-				},
-			}
+			var out wireToolChoiceFunction
+			out.Type = "function"
+			out.Function.Name = tc.FunctionName
+			return out
 		}
 		return "auto"
 	}
 }
 
-func toWireResponseFormat(rf schema.ResponseFormat) (map[string]any, error) {
-	out := map[string]any{
-		"type": rf.Type,
-	}
+func toWireResponseFormat(rf schema.ResponseFormat) (*wireResponseFormat, error) {
+	out := &wireResponseFormat{Type: rf.Type}
 	if len(rf.JSONSchema) > 0 {
 		if !json.Valid(rf.JSONSchema) {
 			return nil, fmt.Errorf("openai_compat: invalid response_format.json_schema JSON")
 		}
-		out["json_schema"] = json.RawMessage(rf.JSONSchema)
+		out.JSONSchema = json.RawMessage(rf.JSONSchema)
 	}
 	return out, nil
 }
 
-func toWireMessage(provider string, m schema.Message) (map[string]any, error) {
-	out := map[string]any{
-		"role": string(m.Role),
-	}
+func toWireMessage(provider string, m schema.Message) (wireRequestMessage, error) {
+	out := wireRequestMessage{Role: string(m.Role)}
 	if m.Name != "" {
-		out["name"] = m.Name
+		out.Name = m.Name
 	}
 	if m.ToolCallID != "" {
-		out["tool_call_id"] = m.ToolCallID
+		out.ToolCallID = m.ToolCallID
 	}
 
 	if len(m.Content) > 0 {
 		if len(m.Content) == 1 {
 			if tp, ok := m.Content[0].(schema.TextContent); ok {
-				out["content"] = tp.Text
+				out.Content = tp.Text
 				return out, nil
 			}
 		}
 
-		parts := make([]map[string]any, 0, len(m.Content))
+		parts := make([]wireRequestContentPart, 0, len(m.Content))
 		for _, p := range m.Content {
 			switch part := p.(type) {
 			case schema.TextContent:
-				parts = append(parts, map[string]any{
-					"type": "text",
-					"text": part.Text,
+				parts = append(parts, wireRequestContentPart{
+					Type: "text",
+					Text: part.Text,
 				})
 			case schema.ImageURLContent:
-				imageURL := map[string]any{
-					"url": part.URL,
-				}
-				if strings.TrimSpace(part.Detail) != "" {
-					imageURL["detail"] = part.Detail
-				}
-				parts = append(parts, map[string]any{
-					"type":      "image_url",
-					"image_url": imageURL,
+				parts = append(parts, wireRequestContentPart{
+					Type: "image_url",
+					ImageURL: &wireRequestImageURL{
+						URL:    part.URL,
+						Detail: strings.TrimSpace(part.Detail),
+					},
 				})
 			case schema.BinaryContent:
 				if strings.TrimSpace(part.MIMEType) == "" {
-					return nil, fmt.Errorf("%s: binary mime type required", provider)
+					return wireRequestMessage{}, fmt.Errorf("%s: binary mime type required", provider)
 				}
 				if len(part.Data) == 0 {
-					return nil, fmt.Errorf("%s: binary data required", provider)
+					return wireRequestMessage{}, fmt.Errorf("%s: binary data required", provider)
 				}
 				dataURL := "data:" + part.MIMEType + ";base64," + base64.StdEncoding.EncodeToString(part.Data)
-				parts = append(parts, map[string]any{
-					"type": "image_url",
-					"image_url": map[string]any{
-						"url": dataURL,
+				parts = append(parts, wireRequestContentPart{
+					Type: "image_url",
+					ImageURL: &wireRequestImageURL{
+						URL: dataURL,
 					},
 				})
 			default:
-				return nil, &llm.UnsupportedOptionError{
+				return wireRequestMessage{}, &llm.UnsupportedOptionError{
 					Provider: llm.Provider(provider),
 					Option:   "message.content",
 					Reason:   fmt.Sprintf("unsupported content part type %T", p),
 				}
 			}
 		}
-		out["content"] = parts
+		out.Content = parts
 		return out, nil
 	}
 
-	out["content"] = ""
+	out.Content = ""
 	return out, nil
 }

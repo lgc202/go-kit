@@ -16,7 +16,7 @@ import (
 //		openai_compat.NoopAdapter
 //	}
 type Adapter interface {
-	ApplyRequestExtensions(req map[string]any, cfg llm.RequestConfig) error
+	ApplyRequestExtensions(req *chatCompletionRequest, cfg llm.RequestConfig) error
 	ParseError(provider string, statusCode int, body []byte) error
 
 	// EnrichResponse 丰富响应数据（处理特有字段如 reasoning_content、reasoning_tokens 等）
@@ -30,7 +30,9 @@ type Adapter interface {
 // NoopAdapter 空操作适配器，适用于标准 OpenAI 兼容 provider
 type NoopAdapter struct{}
 
-func (NoopAdapter) ApplyRequestExtensions(_ map[string]any, _ llm.RequestConfig) error { return nil }
-func (NoopAdapter) ParseError(_ string, _ int, _ []byte) error                         { return nil }
-func (NoopAdapter) EnrichResponse(_ *schema.ChatResponse, _ json.RawMessage) error     { return nil }
-func (NoopAdapter) EnrichStreamEvent(_ *schema.StreamEvent, _ json.RawMessage) error   { return nil }
+func (NoopAdapter) ApplyRequestExtensions(_ *chatCompletionRequest, _ llm.RequestConfig) error {
+	return nil
+}
+func (NoopAdapter) ParseError(_ string, _ int, _ []byte) error                       { return nil }
+func (NoopAdapter) EnrichResponse(_ *schema.ChatResponse, _ json.RawMessage) error   { return nil }
+func (NoopAdapter) EnrichStreamEvent(_ *schema.StreamEvent, _ json.RawMessage) error { return nil }
