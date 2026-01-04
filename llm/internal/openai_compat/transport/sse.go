@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// SSEDecoder decodes Server-Sent Events (SSE) and yields concatenated "data:" payloads.
+// SSEDecoder SSE 解码器，解析并拼接 "data:" 载荷
 type SSEDecoder struct {
 	r   *bufio.Reader
 	buf []string
@@ -16,8 +16,8 @@ func NewSSEDecoder(r io.Reader) *SSEDecoder {
 	return &SSEDecoder{r: bufio.NewReader(r)}
 }
 
-// NextData returns the next SSE data payload joined by "\n".
-// It returns io.EOF when the underlying reader ends.
+// NextData 返回下一个 SSE data 载荷，用 "\n" 拼接
+// 底层 reader 结束时返回 io.EOF
 func (d *SSEDecoder) NextData() (string, error) {
 	for {
 		line, err := d.r.ReadString('\n')

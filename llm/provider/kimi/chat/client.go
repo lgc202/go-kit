@@ -20,10 +20,10 @@ type Config struct {
 	APIKey     string
 	HTTPClient *http.Client
 
-	// DefaultHeaders are applied first, then overridden by request-level headers
+	// DefaultHeaders 默认请求头，会被请求级别的 headers 覆盖
 	DefaultHeaders http.Header
 
-	// DefaultOptions provides client-level defaults for request options
+	// DefaultOptions 客户端级别的默认请求选项
 	DefaultOptions []llm.ChatOption
 }
 

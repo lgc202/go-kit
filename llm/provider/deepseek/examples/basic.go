@@ -1,4 +1,4 @@
-// Package examples provides usage examples for the DeepSeek provider.
+// Package examples 提供 DeepSeek provider 的使用示例
 package examples
 
 import (
@@ -11,7 +11,7 @@ import (
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
-// Basic demonstrates basic usage of the DeepSeek provider.
+// Basic 演示 DeepSeek provider 的基本用法
 func Basic() error {
 	apiKey := os.Getenv("DEEPSEEK_API_KEY")
 	if apiKey == "" {
@@ -44,7 +44,7 @@ func Basic() error {
 	return nil
 }
 
-// Streaming demonstrates streaming usage.
+// Streaming 演示流式响应的用法
 func Streaming() error {
 	apiKey := os.Getenv("DEEPSEEK_API_KEY")
 	if apiKey == "" {

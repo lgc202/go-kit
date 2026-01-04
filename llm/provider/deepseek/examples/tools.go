@@ -11,7 +11,7 @@ import (
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
-// ToolCalling demonstrates function calling with DeepSeek.
+// ToolCalling 演示 DeepSeek 的函数调用功能
 func ToolCalling() error {
 	apiKey := os.Getenv("DEEPSEEK_API_KEY")
 	if apiKey == "" {
@@ -87,7 +87,7 @@ func ToolCalling() error {
 	return nil
 }
 
-// ToolChoiceRequired demonstrates forcing the model to call a tool.
+// ToolChoiceRequired 演示强制模型调用工具
 func ToolChoiceRequired() error {
 	apiKey := os.Getenv("DEEPSEEK_API_KEY")
 	if apiKey == "" {
@@ -137,7 +137,7 @@ func ToolChoiceRequired() error {
 	return nil
 }
 
-// JSONMode demonstrates structured JSON output.
+// JSONMode 演示结构化 JSON 输出
 func JSONMode() error {
 	apiKey := os.Getenv("DEEPSEEK_API_KEY")
 	if apiKey == "" {

@@ -8,30 +8,29 @@ import (
 	"time"
 )
 
-// APIError is a provider-agnostic error returned for non-2xx API responses.
+// APIError API 错误，用于非 2xx 响应
 //
-// It is designed for enterprise-style handling: classification (rate limit, auth),
-// observability (request id), and backoff (retry-after) without provider branches.
+// 设计用于企业级处理：分类（限流、认证）、可观测性（请求追踪）、重试（retry-after）
 type APIError struct {
 	Provider   Provider
 	StatusCode int
 
-	// Code is the provider-specific error code (when available).
+	// Code provider 特定的错误码
 	Code string
 
-	// Type is the provider-specific error type (when available).
+	// Type provider 特定的错误类型
 	Type string
 
-	// Message is the human-readable error message (when available).
+	// Message 人类可读的错误消息
 	Message string
 
-	// RequestID is a provider-specific request identifier, usually extracted from HTTP headers.
+	// RequestID 请求追踪 ID
 	RequestID string
 
-	// RetryAfter is the parsed Retry-After header (when present).
+	// RetryAfter 重试等待时间
 	RetryAfter time.Duration
 
-	// Raw is the raw response body bytes for debugging/forward-compat.
+	// Raw 原始响应体
 	Raw []byte
 }
 
@@ -73,6 +72,7 @@ func (e *APIError) Error() string {
 	return b.String()
 }
 
+// AsAPIError 判断错误是否为 APIError
 func AsAPIError(err error) (*APIError, bool) {
 	var ae *APIError
 	if errors.As(err, &ae) {
@@ -81,6 +81,7 @@ func AsAPIError(err error) (*APIError, bool) {
 	return nil, false
 }
 
+// IsRateLimit 判断是否为限流错误
 func IsRateLimit(err error) bool {
 	ae, ok := AsAPIError(err)
 	if !ok {
@@ -93,6 +94,7 @@ func IsRateLimit(err error) bool {
 	return code == "rate_limit" || code == "rate_limit_exceeded"
 }
 
+// IsAuth 判断是否为认证错误
 func IsAuth(err error) bool {
 	ae, ok := AsAPIError(err)
 	if !ok {
@@ -101,6 +103,7 @@ func IsAuth(err error) bool {
 	return ae.StatusCode == http.StatusUnauthorized || ae.StatusCode == http.StatusForbidden
 }
 
+// IsTemporary 判断是否为临时错误（可重试）
 func IsTemporary(err error) bool {
 	ae, ok := AsAPIError(err)
 	if !ok {

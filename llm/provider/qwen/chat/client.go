@@ -10,7 +10,7 @@ import (
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
-// DashScope OpenAI 兼容端点
+// DefaultBaseURL DashScope OpenAI 兼容端点
 const DefaultBaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 type Config struct {
@@ -18,10 +18,10 @@ type Config struct {
 	APIKey     string
 	HTTPClient *http.Client
 
-	// DefaultHeaders 首先应用，然后被请求级别的 headers 覆盖
+	// DefaultHeaders 默认请求头，会被请求级别的 headers 覆盖
 	DefaultHeaders http.Header
 
-	// DefaultOptions 提供客户端级别的默认请求选项
+	// DefaultOptions 客户端级别的默认请求选项
 	DefaultOptions []llm.ChatOption
 }
 

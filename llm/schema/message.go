@@ -9,33 +9,34 @@ const (
 	RoleTool      Role = "tool"
 )
 
+// Message 聊天消息
 type Message struct {
 	Role Role `json:"role"`
 
-	// Content 包含结构化内容（如文本 + 图片）
-	//
-	// 对于简单文本消息，使用单个 TextContent 部分（通过 schema.TextPart）
+	// Content 支持多模态内容（文本、图片、二进制等）
 	Content []ContentPart `json:"content"`
 
-	// 可选字段，并非所有 provider 都支持/接受这些字段
 	Name       string `json:"name,omitempty"`
 	ToolCallID string `json:"tool_call_id,omitempty"`
 
-	// 可选字段，用于返回独立推理内容和工具调用的 provider（如 DeepSeek）
+	// ReasoningContent 推理内容（DeepSeek 等支持）
 	ReasoningContent string     `json:"reasoning_content,omitempty"`
 	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
 }
 
+// ContentPart 内容片段接口
 type ContentPart interface {
 	isPart()
 }
 
+// TextContent 文本内容
 type TextContent struct {
 	Text string
 }
 
 func (TextContent) isPart() {}
 
+// ImageURLContent 图片 URL 内容
 type ImageURLContent struct {
 	URL    string
 	Detail string
@@ -43,6 +44,7 @@ type ImageURLContent struct {
 
 func (ImageURLContent) isPart() {}
 
+// BinaryContent 二进制内容（如 base64 编码的图片）
 type BinaryContent struct {
 	MIMEType string
 	Data     []byte
@@ -50,7 +52,7 @@ type BinaryContent struct {
 
 func (BinaryContent) isPart() {}
 
-// Text returns the concatenated plain text of all text parts.
+// Text 提取并拼接所有文本部分的内容
 func (m Message) Text() string {
 	var b []byte
 	for _, p := range m.Content {

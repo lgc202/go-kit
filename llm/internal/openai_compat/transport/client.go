@@ -22,6 +22,7 @@ const (
 	httpContentTypeJSON = "application/json"
 )
 
+// 限制错误响应体最大读取 1MB
 const maxErrorBodyBytes = 1 << 20
 
 type Config struct {
@@ -34,7 +35,7 @@ type Config struct {
 	APIKey     string
 	HTTPClient *http.Client
 
-	// DefaultHeaders 首先应用，然后被请求级别的 headers 覆盖
+	// DefaultHeaders 默认请求头，会被请求级别的 headers 覆盖
 	DefaultHeaders http.Header
 }
 
@@ -73,8 +74,7 @@ func New(cfg Config) (*Client, error) {
 	defPath := strings.TrimSpace(cfg.DefaultPath)
 	basePath := strings.TrimRight(u.Path, "/")
 	if defPath != "" && (path == "" || path == defPath) {
-		// If user passes a full endpoint URL like ".../chat/completions" (common copy/paste),
-		// avoid duplicating it when Path is omitted (or left as default).
+		// 用户传入完整端点 URL 时（如 ".../chat/completions"），避免重复路径
 		if strings.HasSuffix(basePath, defPath) {
 			path = ""
 		} else if path == "" {
@@ -281,7 +281,7 @@ func parseRetryAfter(h http.Header) time.Duration {
 	if v == "" {
 		return 0
 	}
-	// RFC 9110 allows either seconds or an HTTP-date.
+	// RFC 9110 支持秒数或 HTTP-date 格式
 	if secs, err := strconv.Atoi(v); err == nil && secs >= 0 {
 		return time.Duration(secs) * time.Second
 	}

@@ -20,7 +20,7 @@ const (
 	httpAcceptSSE  = "text/event-stream"
 )
 
-// DefaultPath is the OpenAI-compatible chat completions endpoint path.
+// DefaultPath OpenAI 兼容的 chat completions 端点路径
 const DefaultPath = "/chat/completions"
 
 type Config struct {
@@ -34,7 +34,7 @@ type Config struct {
 
 	DefaultHeaders http.Header
 
-	// DefaultOptions 提供客户端级别的默认请求选项
+	// DefaultOptions 客户端级别的默认请求选项
 	DefaultOptions []llm.ChatOption
 }
 

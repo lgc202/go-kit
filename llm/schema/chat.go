@@ -5,15 +5,17 @@ import (
 	"time"
 )
 
+// FinishReason 表示对话结束的原因
 type FinishReason string
 
 const (
-	FinishReasonStop          FinishReason = "stop"
-	FinishReasonLength        FinishReason = "length"
-	FinishReasonToolCalls     FinishReason = "tool_calls"
-	FinishReasonContentFilter FinishReason = "content_filter"
+	FinishReasonStop          FinishReason = "stop"          // 自然结束
+	FinishReasonLength        FinishReason = "length"        // 达到最大长度
+	FinishReasonToolCalls     FinishReason = "tool_calls"    // 调用工具
+	FinishReasonContentFilter FinishReason = "content_filter" // 内容过滤
 )
 
+// Choice 表示一个生成的候选项
 type Choice struct {
 	Index        int          `json:"index"`
 	Message      Message      `json:"message"`
@@ -28,7 +30,7 @@ type ChatResponse struct {
 	Choices []Choice `json:"choices"`
 	Usage   Usage    `json:"usage"`
 
-	// ServiceTier 返回实际使用的服务层级
+	// ServiceTier 返回实际使用的服务层级，如 "default", "scale"
 	ServiceTier *string `json:"service_tier,omitempty"`
 
 	// ExtraFields 是 provider 特定的扩展字段（通常由 response hook 从原始响应中提取并填充）。

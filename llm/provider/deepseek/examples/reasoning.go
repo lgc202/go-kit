@@ -10,7 +10,7 @@ import (
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
-// Reasoning demonstrates usage of deepseek-reasoner with thinking control.
+// Reasoning 演示 deepseek-reasoner 推理模式的用法
 func Reasoning() error {
 	apiKey := os.Getenv("DEEPSEEK_API_KEY")
 	if apiKey == "" {
@@ -47,7 +47,7 @@ func Reasoning() error {
 	return nil
 }
 
-// ReasoningDisabled demonstrates disabling reasoning mode.
+// ReasoningDisabled 演示禁用推理模式
 func ReasoningDisabled() error {
 	apiKey := os.Getenv("DEEPSEEK_API_KEY")
 	if apiKey == "" {
@@ -80,7 +80,7 @@ func ReasoningDisabled() error {
 	return nil
 }
 
-// ReasoningStreaming demonstrates streaming and splitting reasoning/content.
+// ReasoningStreaming 演示流式响应并区分推理内容和最终答案
 func ReasoningStreaming() error {
 	apiKey := os.Getenv("DEEPSEEK_API_KEY")
 	if apiKey == "" {

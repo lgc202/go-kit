@@ -48,22 +48,13 @@ type embeddingOptionFunc func(*EmbeddingConfig)
 
 func (f embeddingOptionFunc) applyEmbedding(c *EmbeddingConfig) { f(c) }
 
-// ResponseHook allows callers to inspect the raw provider response payload and
-// enrich the unified response (e.g. fill schema.ChatResponse.ExtraFields).
-//
-// Returning a non-nil error aborts the request and returns that error.
+// ResponseHook 响应钩子，用于从原始响应中提取额外信息
 type ResponseHook func(dst *schema.ChatResponse, raw json.RawMessage) error
 
-// StreamEventHook allows callers to inspect each raw streaming chunk payload and
-// enrich the unified stream event (e.g. fill schema.StreamEvent.ExtraFields).
-//
-// Returning a non-nil error aborts the stream and returns that error.
+// StreamEventHook 流事件钩子，用于从原始流事件中提取额外信息
 type StreamEventHook func(dst *schema.StreamEvent, raw json.RawMessage) error
 
-// ErrorHook allows callers to parse provider-specific error responses.
-//
-// It is only called for non-2xx HTTP responses. Returning nil indicates the hook
-// does not handle the error and the client should fall back to default parsing.
+// ErrorHook 错误钩子，用于解析 provider 特定的错误响应
 type ErrorHook func(provider Provider, statusCode int, body []byte) error
 
 // ChatConfig 表示单次 chat 请求的配置
@@ -187,15 +178,12 @@ type ChatConfig struct {
 	// 为 true 时，schema.ChatResponse.Raw 和 schema.StreamEvent.Raw 会包含原始响应
 	KeepRaw bool
 
-	// ResponseHooks allows enriching the unified response using the raw provider payload.
-	// Note: setting hooks may cause the client to buffer the whole response body in memory.
 	ResponseHooks []ResponseHook
 
-	// StreamEventHooks allows enriching stream events using each raw provider chunk payload.
-	// Note: setting hooks may cause the stream decoder to retain raw chunk bytes per event.
+	// StreamEventHooks 流事件钩子列表
 	StreamEventHooks []StreamEventHook
 
-	// ErrorHooks allows parsing provider-specific non-2xx error responses.
+	// ErrorHooks 错误钩子列表
 	ErrorHooks []ErrorHook
 }
 
@@ -566,7 +554,7 @@ func WithKeepRaw(enabled bool) CommonOption {
 	}
 }
 
-// WithResponseHook adds a hook to enrich the unified response using the raw provider payload.
+// WithResponseHook 添加响应钩子，用于从原始响应中提取额外信息
 func WithResponseHook(h ResponseHook) ChatOption {
 	return chatOptionFunc(func(c *ChatConfig) {
 		if h == nil {
@@ -576,7 +564,7 @@ func WithResponseHook(h ResponseHook) ChatOption {
 	})
 }
 
-// WithStreamEventHook adds a hook to enrich stream events using each raw provider chunk payload.
+// WithStreamEventHook 添加流事件钩子，用于从原始流事件中提取额外信息
 func WithStreamEventHook(h StreamEventHook) ChatOption {
 	return chatOptionFunc(func(c *ChatConfig) {
 		if h == nil {
@@ -586,7 +574,7 @@ func WithStreamEventHook(h StreamEventHook) ChatOption {
 	})
 }
 
-// WithErrorHook adds a hook to parse provider-specific non-2xx error responses.
+// WithErrorHook 添加错误钩子，用于解析 provider 特定的错误响应
 func WithErrorHook(h ErrorHook) CommonOption {
 	return commonOption{
 		chat: func(c *ChatConfig) {

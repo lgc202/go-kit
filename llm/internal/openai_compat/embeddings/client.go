@@ -16,7 +16,7 @@ import (
 
 const httpAcceptJSON = "application/json"
 
-// DefaultPath is the OpenAI-compatible embeddings endpoint path.
+// DefaultPath OpenAI 兼容的 embeddings 端点路径
 const DefaultPath = "/embeddings"
 
 type Config struct {
@@ -30,7 +30,7 @@ type Config struct {
 
 	DefaultHeaders http.Header
 
-	// DefaultOptions provides client-level defaults for request options.
+	// DefaultOptions 客户端级别的默认请求选项
 	DefaultOptions []llm.EmbeddingOption
 }
 

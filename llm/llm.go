@@ -6,26 +6,26 @@ import (
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
-// ChatModel 是用于 chat 的 LLM 的最小化、provider 无关接口
+// ChatModel 聊天模型接口，最小化且与具体 provider 无关
 type ChatModel interface {
 	Chat(ctx context.Context, messages []schema.Message, opts ...ChatOption) (schema.ChatResponse, error)
 	ChatStream(ctx context.Context, messages []schema.Message, opts ...ChatOption) (Stream, error)
 }
 
-// Embedder is the minimal, provider-agnostic interface for text embeddings.
+// Embedder 向量嵌入接口，与具体 provider 无关
 type Embedder interface {
 	Embed(ctx context.Context, inputs []string, opts ...EmbeddingOption) (schema.EmbeddingResponse, error)
 }
 
-// Stream 是 provider 无关的流式读取器
+// Stream 流式响应读取器
 //
-// Recv 为每个事件返回 (schema.StreamEvent, nil)，当流正常结束时返回 io.EOF
+// Recv 每次返回一个事件，流结束时返回 io.EOF
 type Stream interface {
 	Recv() (schema.StreamEvent, error)
 	Close() error
 }
 
-// Provider 是模型提供商的标准标识符
+// Provider 模型提供商标识
 type Provider string
 
 const (
@@ -37,11 +37,12 @@ const (
 	ProviderOllama   Provider = "ollama"
 )
 
-// ProviderNamer 是一个可选接口，用于发现 ChatModel 实例背后的 provider
+// ProviderNamer 可选接口，用于标识 ChatModel 的 provider 类型
 type ProviderNamer interface {
 	Provider() Provider
 }
 
+// ProviderOf 获取 ChatModel 的 provider 标识
 func ProviderOf(m ChatModel) Provider {
 	if p, ok := m.(ProviderNamer); ok {
 		if p.Provider() != "" {
