@@ -49,8 +49,10 @@ func TestChat_ReasoningContent(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		APIKey:         "tok",
-		HTTPClient:     httpClient,
+		BaseConfig: BaseConfig{
+			APIKey:     "tok",
+			HTTPClient: httpClient,
+		},
 		DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
@@ -109,8 +111,10 @@ func TestChatStream_ReasoningContent(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		APIKey:         "tok",
-		HTTPClient:     httpClient,
+		BaseConfig: BaseConfig{
+			APIKey:     "tok",
+			HTTPClient: httpClient,
+		},
 		DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
@@ -187,8 +191,10 @@ func TestChat_ReasoningContentEmpty(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		APIKey:         "tok",
-		HTTPClient:     httpClient,
+		BaseConfig: BaseConfig{
+			APIKey:     "tok",
+			HTTPClient: httpClient,
+		},
 		DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
