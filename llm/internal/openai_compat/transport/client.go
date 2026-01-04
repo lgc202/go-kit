@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -139,7 +140,7 @@ func (c *Client) PostJSON(ctx context.Context, payload any, cfg RequestConfig, a
 		if rerr != nil {
 			return nil, fmt.Errorf("%s: http %d (also failed to read error body: %v)", c.provider, resp.StatusCode, rerr)
 		}
-		return nil, parseError(c.provider, llm.Provider(c.provider), resp.StatusCode, respBytes, cfg.ErrorHooks)
+		return nil, parseError(llm.Provider(c.provider), resp.StatusCode, resp.Header, respBytes, cfg.ErrorHooks)
 	}
 
 	return resp, nil
@@ -183,7 +184,7 @@ type errorResponse struct {
 	} `json:"error"`
 }
 
-func parseError(providerName string, provider llm.Provider, statusCode int, body []byte, hooks []llm.ErrorHook) error {
+func parseError(provider llm.Provider, statusCode int, hdr http.Header, body []byte, hooks []llm.ErrorHook) error {
 	for _, h := range hooks {
 		if h == nil {
 			continue
@@ -194,17 +195,32 @@ func parseError(providerName string, provider llm.Provider, statusCode int, body
 	}
 
 	var er errorResponse
-	if err := json.Unmarshal(body, &er); err == nil && er.Error.Message != "" {
-		if er.Error.Code != "" {
-			return fmt.Errorf("%s: http %d: %s (%s)", providerName, statusCode, er.Error.Message, er.Error.Code)
+	if err := json.Unmarshal(body, &er); err == nil && strings.TrimSpace(er.Error.Message) != "" {
+		return &llm.APIError{
+			Provider:   provider,
+			StatusCode: statusCode,
+			Code:       strings.TrimSpace(er.Error.Code),
+			Type:       strings.TrimSpace(er.Error.Type),
+			Message:    strings.TrimSpace(er.Error.Message),
+			RequestID:  extractRequestID(hdr),
+			RetryAfter: parseRetryAfter(hdr),
+			Raw:        slices.Clone(body),
 		}
-		return fmt.Errorf("%s: http %d: %s", providerName, statusCode, er.Error.Message)
 	}
 
-	if len(body) > 0 {
-		return fmt.Errorf("%s: http %d: %s", providerName, statusCode, string(body))
+	msg := strings.TrimSpace(string(body))
+	if msg == "" {
+		msg = http.StatusText(statusCode)
 	}
-	return fmt.Errorf("%s: http %d", providerName, statusCode)
+
+	return &llm.APIError{
+		Provider:   provider,
+		StatusCode: statusCode,
+		Message:    msg,
+		RequestID:  extractRequestID(hdr),
+		RetryAfter: parseRetryAfter(hdr),
+		Raw:        slices.Clone(body),
+	}
 }
 
 func sanitizeHTTPError(err error) error {
@@ -213,19 +229,20 @@ func sanitizeHTTPError(err error) error {
 	}
 
 	if errors.Is(err, context.DeadlineExceeded) {
-		return errors.New("request timeout: API call exceeded deadline")
+		return fmt.Errorf("request timeout: API call exceeded deadline: %w", err)
 	}
 	if errors.Is(err, context.Canceled) {
-		return errors.New("request cancelled")
+		return fmt.Errorf("request cancelled: %w", err)
 	}
 
 	var netErr net.Error
-	if errors.As(err, &netErr) && netErr.Timeout() {
-		return errors.New("request timeout: network operation exceeded timeout")
+	if errors.As(err, &netErr) {
+		if netErr.Timeout() {
+			return fmt.Errorf("request timeout: network operation exceeded timeout: %w", err)
+		}
+		return fmt.Errorf("network error: failed to reach API server: %w", err)
 	}
-	if _, ok := err.(net.Error); ok {
-		return errors.New("network error: failed to reach API server")
-	}
+
 	return err
 }
 
@@ -236,4 +253,44 @@ func readLimited(r io.Reader, limit int) ([]byte, error) {
 		return nil, err
 	}
 	return b, nil
+}
+
+func extractRequestID(h http.Header) string {
+	if h == nil {
+		return ""
+	}
+
+	for _, k := range []string{
+		"X-Request-Id",
+		"X-Request-ID",
+		"X-RequestId",
+		"X-Amzn-RequestId",
+	} {
+		if v := strings.TrimSpace(h.Get(k)); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func parseRetryAfter(h http.Header) time.Duration {
+	if h == nil {
+		return 0
+	}
+	v := strings.TrimSpace(h.Get("Retry-After"))
+	if v == "" {
+		return 0
+	}
+	// RFC 9110 allows either seconds or an HTTP-date.
+	if secs, err := strconv.Atoi(v); err == nil && secs >= 0 {
+		return time.Duration(secs) * time.Second
+	}
+	if t, err := http.ParseTime(v); err == nil {
+		d := time.Until(t)
+		if d < 0 {
+			return 0
+		}
+		return d
+	}
+	return 0
 }
