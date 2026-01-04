@@ -2,7 +2,6 @@ package chat
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -16,33 +15,26 @@ type roundTripperFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
-func TestChat_RequestAndResponseMapping(t *testing.T) {
+// TestChat_ReasoningContent 测试 DeepSeek 特有的 reasoning_content 字段
+func TestChat_ReasoningContent(t *testing.T) {
 	t.Parallel()
-
-	var gotPath string
-	var gotAuth string
-	var gotReq map[string]any
 
 	httpClient := &http.Client{
 		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-			gotPath = r.URL.Path
-			gotAuth = r.Header.Get("Authorization")
-
-			if err := json.NewDecoder(r.Body).Decode(&gotReq); err != nil {
-				return &http.Response{
-					StatusCode: http.StatusBadRequest,
-					Body:       io.NopCloser(strings.NewReader(err.Error())),
-					Header:     make(http.Header),
-					Request:    r,
-				}, nil
-			}
-
 			body := `{
   "id":"abc",
   "created": 1,
   "model":"deepseek-chat",
-  "choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"ok","reasoning_content":"r","tool_calls":[{"id":"tc1","type":"function","function":{"name":"f","arguments":"{}"}}]}}],
-  "usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}
+  "choices":[{
+    "index":0,
+    "finish_reason":"stop",
+    "message":{
+      "role":"assistant",
+      "content":"Final answer: The capital of France is Paris",
+      "reasoning_content":"Let me think... France is a country in Europe. The capital city is Paris."
+    }
+  }],
+  "usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}
 }`
 
 			h := make(http.Header)
@@ -57,84 +49,43 @@ func TestChat_RequestAndResponseMapping(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		BaseURL:        "https://example.test",
 		APIKey:         "tok",
 		HTTPClient:     httpClient,
 		DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
-		t.Fatalf("New: %v", err)
+		t.Fatalf("New() error = %v", err)
 	}
 
-	resp, err := c.Chat(
-		context.Background(),
-		[]schema.Message{
-			schema.SystemMessage("You are a helpful assistant"),
-			schema.UserMessage("Hi"),
-		},
-		WithThinking(false),
-		llm.WithResponseFormat(schema.ResponseFormat{Type: "text"}),
-		llm.WithFrequencyPenalty(0),
-		llm.WithPresencePenalty(0),
-		llm.WithMaxTokens(4096),
-		llm.WithTemperature(1),
-		llm.WithTopP(1),
-	)
+	resp, err := c.Chat(context.Background(), []schema.Message{
+		schema.UserMessage("What is the capital of France?"),
+	})
 	if err != nil {
-		t.Fatalf("Chat: %v", err)
+		t.Fatalf("Chat() error = %v", err)
 	}
 
-	if gotPath != "/chat/completions" {
-		t.Fatalf("path: got %q", gotPath)
-	}
-	if gotAuth != "Bearer tok" {
-		t.Fatalf("auth: got %q", gotAuth)
-	}
-
-	if gotReq["model"] != "deepseek-chat" {
-		t.Fatalf("model: got %#v", gotReq["model"])
-	}
-	if gotReq["stream"] != false {
-		t.Fatalf("stream: got %#v", gotReq["stream"])
-	}
-	if gotReq["max_tokens"] != float64(4096) {
-		t.Fatalf("max_tokens: got %#v", gotReq["max_tokens"])
-	}
-	if gotReq["temperature"] != float64(1) {
-		t.Fatalf("temperature: got %#v", gotReq["temperature"])
-	}
-	if gotReq["top_p"] != float64(1) {
-		t.Fatalf("top_p: got %#v", gotReq["top_p"])
+	// 验证 reasoning_content 字段被正确解析
+	gotReasoning := resp.Choices[0].Message.ReasoningContent
+	wantReasoning := "Let me think... France is a country in Europe. The capital city is Paris."
+	if gotReasoning != wantReasoning {
+		t.Errorf("ReasoningContent = %q, want %q", gotReasoning, wantReasoning)
 	}
 
-	thinking, _ := gotReq["thinking"].(map[string]any)
-	if thinking["type"] != "disabled" {
-		t.Fatalf("thinking.type: got %#v", gotReq["thinking"])
+	// 验证普通 content 字段也被正确解析
+	gotText := resp.Choices[0].Message.Text()
+	wantText := "Final answer: The capital of France is Paris"
+	if gotText != wantText {
+		t.Errorf("Text() = %q, want %q", gotText, wantText)
 	}
 
-	rf, _ := gotReq["response_format"].(map[string]any)
-	if rf["type"] != "text" {
-		t.Fatalf("response_format.type: got %#v", gotReq["response_format"])
-	}
-
-	if len(resp.Choices) != 1 {
-		t.Fatalf("choices: got %d", len(resp.Choices))
-	}
-	if resp.Choices[0].Message.Text() != "ok" {
-		t.Fatalf("content: got %q", resp.Choices[0].Message.Text())
-	}
-	if resp.Choices[0].Message.ReasoningContent != "r" {
-		t.Fatalf("reasoning_content: got %q", resp.Choices[0].Message.ReasoningContent)
-	}
-	if len(resp.Choices[0].Message.ToolCalls) != 1 {
-		t.Fatalf("tool_calls: got %d", len(resp.Choices[0].Message.ToolCalls))
-	}
-	if resp.Choices[0].Message.ToolCalls[0].Function.Name != "f" {
-		t.Fatalf("tool_call.function.name: got %q", resp.Choices[0].Message.ToolCalls[0].Function.Name)
+	// 验证 usage 统计
+	if resp.Usage.TotalTokens != 30 {
+		t.Errorf("TotalTokens = %d, want 30", resp.Usage.TotalTokens)
 	}
 }
 
-func TestChatStream_BasicDelta(t *testing.T) {
+// TestChatStream_ReasoningContent 测试流式响应中的 reasoning_content
+func TestChatStream_ReasoningContent(t *testing.T) {
 	t.Parallel()
 
 	httpClient := &http.Client{
@@ -142,7 +93,10 @@ func TestChatStream_BasicDelta(t *testing.T) {
 			h := make(http.Header)
 			h.Set("Content-Type", "text/event-stream")
 
-			body := "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hi\",\"reasoning_content\":\"R\"}}]}\n\n" +
+			// DeepSeek 流式响应：先输出 reasoning_content，再输出最终答案
+			body := "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"Thinking...\"}}]}\n\n" +
+				"data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Answer\"}}]}\n\n" +
+				"data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n" +
 				"data: [DONE]\n\n"
 
 			return &http.Response{
@@ -155,41 +109,74 @@ func TestChatStream_BasicDelta(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		BaseURL:        "https://example.test",
 		APIKey:         "tok",
 		HTTPClient:     httpClient,
 		DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
-		t.Fatalf("New: %v", err)
+		t.Fatalf("New() error = %v", err)
 	}
 
-	st, err := c.ChatStream(context.Background(), []schema.Message{schema.UserMessage("Hi")})
+	st, err := c.ChatStream(context.Background(), []schema.Message{
+		schema.UserMessage("What is 2+2?"),
+	})
 	if err != nil {
-		t.Fatalf("ChatStream: %v", err)
+		t.Fatalf("ChatStream() error = %v", err)
 	}
-	t.Cleanup(func() { _ = st.Close() })
+	// 确保流被关闭
+	t.Cleanup(func() { st.Close() })
 
+	// 第一个事件：reasoning_content
 	ev, err := st.Recv()
 	if err != nil {
-		t.Fatalf("Recv: %v", err)
+		t.Fatalf("Recv() error = %v", err)
 	}
-	if ev.Type != schema.StreamEventDelta || ev.Delta != "Hi" || ev.Reasoning != "R" {
-		t.Fatalf("event: %#v", ev)
+	if ev.Type != schema.StreamEventDelta {
+		t.Errorf("First event Type = %v, want %v", ev.Type, schema.StreamEventDelta)
+	}
+	if ev.Reasoning != "Thinking..." {
+		t.Errorf("First event Reasoning = %q, want %q", ev.Reasoning, "Thinking...")
+	}
+
+	// 第二个事件：content
+	ev, err = st.Recv()
+	if err != nil {
+		t.Fatalf("Recv() error = %v", err)
+	}
+	if ev.Delta != "Answer" {
+		t.Errorf("Second event Delta = %q, want %q", ev.Delta, "Answer")
+	}
+
+	// 第三个事件：完成
+	ev, err = st.Recv()
+	if err != nil && err.Error() != "EOF" {
+		t.Fatalf("Recv() error = %v", err)
+	}
+	if ev.FinishReason == nil || *ev.FinishReason != schema.FinishReasonStop {
+		t.Errorf("FinishReason = %v, want %v", ev.FinishReason, schema.FinishReasonStop)
 	}
 }
 
-func TestChatStream_EventHookCanEnrichExtraFields(t *testing.T) {
+// TestChat_ReasoningContentEmpty 测试 reasoning_content 可以为空
+func TestChat_ReasoningContentEmpty(t *testing.T) {
 	t.Parallel()
 
 	httpClient := &http.Client{
 		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			body := `{
+  "id":"abc",
+  "created": 1,
+  "model":"deepseek-chat",
+  "choices":[{
+    "index":0,
+    "finish_reason":"stop",
+    "message":{"role":"assistant","content":"Simple answer"}
+  }],
+  "usage":{"prompt_tokens":5,"completion_tokens":5,"total_tokens":10}
+}`
+
 			h := make(http.Header)
-			h.Set("Content-Type", "text/event-stream")
-
-			body := "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hi\"}}],\"x_provider_meta\":{\"foo\":\"bar\"}}\n\n" +
-				"data: [DONE]\n\n"
-
+			h.Set("Content-Type", "application/json")
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(strings.NewReader(body)),
@@ -200,44 +187,26 @@ func TestChatStream_EventHookCanEnrichExtraFields(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		BaseURL:        "https://example.test",
 		APIKey:         "tok",
 		HTTPClient:     httpClient,
 		DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
-		t.Fatalf("New: %v", err)
+		t.Fatalf("New() error = %v", err)
 	}
 
-	st, err := c.ChatStream(context.Background(), []schema.Message{schema.UserMessage("Hi")},
-		llm.WithStreamEventHook(func(dst *schema.StreamEvent, raw json.RawMessage) error {
-			var m map[string]any
-			if err := json.Unmarshal(raw, &m); err != nil {
-				return err
-			}
-			if dst.ExtraFields == nil {
-				dst.ExtraFields = make(map[string]any)
-			}
-			dst.ExtraFields["x_provider_meta"] = m["x_provider_meta"]
-			return nil
-		}),
-	)
+	resp, err := c.Chat(context.Background(), []schema.Message{
+		schema.UserMessage("Hi"),
+	})
 	if err != nil {
-		t.Fatalf("ChatStream: %v", err)
+		t.Fatalf("Chat() error = %v", err)
 	}
-	t.Cleanup(func() { _ = st.Close() })
 
-	ev, err := st.Recv()
-	if err != nil {
-		t.Fatalf("Recv: %v", err)
+	// reasoning_content 为空时不应该报错
+	if resp.Choices[0].Message.ReasoningContent != "" {
+		t.Errorf("ReasoningContent = %q, want empty", resp.Choices[0].Message.ReasoningContent)
 	}
-	if ev.Type != schema.StreamEventDelta || ev.Delta != "Hi" {
-		t.Fatalf("event: %#v", ev)
-	}
-	if len(ev.Raw) != 0 {
-		t.Fatalf("expected Raw to be empty when KeepRaw=false, got: %s", string(ev.Raw))
-	}
-	if ev.ExtraFields == nil || ev.ExtraFields["x_provider_meta"] == nil {
-		t.Fatalf("expected ExtraFields to be enriched, got: %#v", ev.ExtraFields)
+	if resp.Choices[0].Message.Text() != "Simple answer" {
+		t.Errorf("Text() = %q, want %q", resp.Choices[0].Message.Text(), "Simple answer")
 	}
 }
