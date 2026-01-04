@@ -50,9 +50,11 @@ func TestEmbed_RequestAndResponse(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		BaseURL:        "https://example.test/v1",
-		APIKey:         "tok",
-		HTTPClient:     httpClient,
+		BaseConfig: BaseConfig{
+			BaseURL:    "https://example.test/v1",
+			APIKey:     "tok",
+			HTTPClient: httpClient,
+		},
 		DefaultOptions: []llm.EmbeddingOption{llm.WithModel("text-embedding-3-small")},
 	})
 	if err != nil {

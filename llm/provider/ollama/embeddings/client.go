@@ -2,11 +2,11 @@ package embeddings
 
 import (
 	"context"
-	"net/http"
 	"strings"
 
 	"github.com/lgc202/go-kit/llm"
 	openaiCompatEmbeddings "github.com/lgc202/go-kit/llm/internal/openai_compat/embeddings"
+	"github.com/lgc202/go-kit/llm/provider/base"
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
@@ -15,13 +15,10 @@ const DefaultBaseURL = "http://localhost:11434/v1"
 var _ llm.Embedder = (*Client)(nil)
 var _ llm.ProviderNamer = (*Client)(nil)
 
-type Config struct {
-	BaseURL    string
-	APIKey     string
-	HTTPClient *http.Client
+type BaseConfig = base.Config
 
-	// DefaultHeaders 默认请求头，会被请求级别的 headers 覆盖
-	DefaultHeaders http.Header
+type Config struct {
+	BaseConfig
 
 	// DefaultOptions 客户端级别的默认请求选项
 	DefaultOptions []llm.EmbeddingOption
@@ -32,14 +29,14 @@ type Client struct {
 }
 
 func New(cfg Config) (*Client, error) {
-	base := strings.TrimSpace(cfg.BaseURL)
-	if base == "" {
-		base = DefaultBaseURL
+	baseURL := strings.TrimSpace(cfg.BaseURL)
+	if baseURL == "" {
+		baseURL = DefaultBaseURL
 	}
 
 	inner, err := openaiCompatEmbeddings.New(openaiCompatEmbeddings.Config{
 		Provider:       llm.ProviderOllama,
-		BaseURL:        base,
+		BaseURL:        baseURL,
 		Path:           "/embeddings",
 		APIKey:         cfg.APIKey,
 		HTTPClient:     cfg.HTTPClient,

@@ -58,12 +58,21 @@ func toSchemaToolCalls(in []wireToolCall) []schema.ToolCall {
 
 func toSchemaMessage(m wireMessage) schema.Message {
 	parts := toSchemaContentParts(m.Content)
+
+	// 优先使用 reasoning_content，为空则使用 reasoning
+	// DeepSeek API: reasoning_content
+	// Ollama DeepSeek R1: reasoning
+	reasoningContent := m.ReasoningContent
+	if reasoningContent == "" {
+		reasoningContent = m.Reasoning
+	}
+
 	out := schema.Message{
 		Role:             schema.Role(m.Role),
 		Content:          parts,
 		Name:             m.Name,
 		ToolCallID:       m.ToolCallID,
-		ReasoningContent: m.ReasoningContent,
+		ReasoningContent: reasoningContent,
 		ToolCalls:        toSchemaToolCalls(m.ToolCalls),
 	}
 	return out

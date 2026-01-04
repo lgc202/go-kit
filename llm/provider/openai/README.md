@@ -17,13 +17,15 @@ import (
     "github.com/lgc202/go-kit/llm/schema"
 )
 
-func main() {
-    client, err := openai.New(openai.Config{
-        APIKey: os.Getenv("OPENAI_API_KEY"),
-        DefaultOptions: []llm.ChatOption{
-            llm.WithModel("gpt-4o-mini"),
-        },
-    })
+	func main() {
+	    client, err := openai.New(openai.Config{
+	        BaseConfig: openai.BaseConfig{
+	            APIKey: os.Getenv("OPENAI_API_KEY"),
+	        },
+	        DefaultOptions: []llm.ChatOption{
+	            llm.WithModel("gpt-4o-mini"),
+	        },
+	    })
     if err != nil {
         panic(err)
     }
@@ -234,22 +236,26 @@ fmt.Println("总 token:", usage.TotalTokens)
 ### 客户端级默认配置
 
 ```go
-client, err := openai.New(openai.Config{
-    APIKey: os.Getenv("OPENAI_API_KEY"),
-    DefaultOptions: []llm.ChatOption{
-        llm.WithModel("gpt-4o-mini"),
-        llm.WithTemperature(0.7),
-    },
-})
+	client, err := openai.New(openai.Config{
+	    BaseConfig: openai.BaseConfig{
+	        APIKey: os.Getenv("OPENAI_API_KEY"),
+	    },
+	    DefaultOptions: []llm.ChatOption{
+	        llm.WithModel("gpt-4o-mini"),
+	        llm.WithTemperature(0.7),
+	    },
+	})
 ```
 
 ### 自定义 Base URL
 
 ```go
-client, err := openai.New(openai.Config{
-    BaseURL: "https://your-proxy.example.com/v1",
-    APIKey:  os.Getenv("OPENAI_API_KEY"),
-})
+	client, err := openai.New(openai.Config{
+	    BaseConfig: openai.BaseConfig{
+	        BaseURL: "https://your-proxy.example.com/v1",
+	        APIKey:  os.Getenv("OPENAI_API_KEY"),
+	    },
+	})
 ```
 
 ### 自定义 HTTP 客户端
@@ -259,10 +265,12 @@ httpClient := &http.Client{
     Timeout: 30 * time.Second,
 }
 
-client, err := openai.New(openai.Config{
-    APIKey:     os.Getenv("OPENAI_API_KEY"),
-    HTTPClient: httpClient,
-})
+	client, err := openai.New(openai.Config{
+	    BaseConfig: openai.BaseConfig{
+	        APIKey:     os.Getenv("OPENAI_API_KEY"),
+	        HTTPClient: httpClient,
+	    },
+	})
 ```
 
 ### 默认请求头
@@ -271,11 +279,13 @@ client, err := openai.New(openai.Config{
 headers := make(http.Header)
 headers.Set("X-Custom-Header", "value")
 
-client, err := openai.New(openai.Config{
-    APIKey:         os.Getenv("OPENAI_API_KEY"),
-    DefaultHeaders: headers,
-})
-```
+	client, err := openai.New(openai.Config{
+	    BaseConfig: openai.BaseConfig{
+	        APIKey:         os.Getenv("OPENAI_API_KEY"),
+	        DefaultHeaders: headers,
+	    },
+	})
+	```
 
 ## API 参考
 

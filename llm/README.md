@@ -36,13 +36,15 @@ import (
     "github.com/lgc202/go-kit/llm/schema"
 )
 
-func main() {
-    client, err := chat.New(chat.Config{
-        APIKey: os.Getenv("OPENAI_API_KEY"),
-        DefaultOptions: []llm.ChatOption{
-            llm.WithModel("gpt-4o-mini"),
-        },
-    })
+	func main() {
+	    client, err := chat.New(chat.Config{
+	        BaseConfig: chat.BaseConfig{
+	            APIKey: os.Getenv("OPENAI_API_KEY"),
+	        },
+	        DefaultOptions: []llm.ChatOption{
+	            llm.WithModel("gpt-4o-mini"),
+	        },
+	    })
     if err != nil {
         log.Fatal(err)
     }
@@ -306,13 +308,15 @@ llm.WithExtraHeaders(map[string]string{
 ### 客户端级默认配置
 
 ```go
-client, err := chat.New(chat.Config{
-    APIKey: os.Getenv("OPENAI_API_KEY"),
-    DefaultOptions: []llm.ChatOption{
-        llm.WithModel("gpt-4o-mini"),
-        llm.WithTemperature(0.7),
-    },
-})
+	client, err := chat.New(chat.Config{
+	    BaseConfig: chat.BaseConfig{
+	        APIKey: os.Getenv("OPENAI_API_KEY"),
+	    },
+	    DefaultOptions: []llm.ChatOption{
+	        llm.WithModel("gpt-4o-mini"),
+	        llm.WithTemperature(0.7),
+	    },
+	})
 
 // 后续请求会自动使用默认配置
 resp, _ := client.Chat(ctx, messages)
@@ -321,11 +325,13 @@ resp, _ := client.Chat(ctx, messages)
 ### 自定义 Base URL
 
 ```go
-client, err := chat.New(chat.Config{
-    BaseURL: "https://your-proxy.com/v1",
-    APIKey:  os.Getenv("API_KEY"),
-})
-```
+	client, err := chat.New(chat.Config{
+	    BaseConfig: chat.BaseConfig{
+	        BaseURL: "https://your-proxy.com/v1",
+	        APIKey:  os.Getenv("API_KEY"),
+	    },
+	})
+	```
 
 ### 获取原始响应
 
@@ -356,8 +362,17 @@ fmt.Printf("缓存命中: %d\n", usage.PromptCacheHitTokens)
 
 ## 更多示例
 
-- [DeepSeek 示例](./provider/deepseek/examples/) - 基础对话、推理模型、工具调用
-- [Ollama 示例](./examples/ollama/) - 本地模型使用
+```bash
+# DeepSeek 示例
+go run examples/deepseek/basic/main.go       # 基础对话
+go run examples/deepseek/reasoning/main.go   # 推理模型
+go run examples/deepseek/tools/main.go       # 工具调用
+go run examples/deepseek/stream/main.go      # 流式输出
+
+# Ollama 示例
+go run examples/ollama/basic/main.go         # 基础对话
+go run examples/ollama/reasoning/main.go     # 推理模型
+```
 
 ## 相关文档
 

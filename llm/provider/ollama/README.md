@@ -150,6 +150,12 @@ ollama.WithThink(true)   // 启用推理
 ollama.WithThink(false)  // 禁用推理
 ```
 
+**字段说明**:
+- **请求参数**: `think` (设置 `ollama.WithThink(true)`)
+- **响应字段**: DeepSeek R1 模型返回 `message.reasoning` 字段，与 DeepSeek 官方 API 的 `reasoning_content` 字段不同。
+
+go-kit 会自动处理这两种响应字段，统一通过 `Message.ReasoningContent` 访问推理内容。
+
 ## 推理模式
 
 使用 DeepSeek R1 等推理模型时，可以获取模型的推理过程：
@@ -294,4 +300,9 @@ resp, err := client.Chat(ctx, messages,
 
 ## API 文档
 
-详细 API 文档请参考: [Ollama API Documentation](https://github.com/ollama/ollama/blob/main/docs/api.md)
+详细 API 文档请参考:
+
+- [Ollama API Documentation](https://github.com/ollama/ollama/blob/main/docs/api.md) - 通用 API 文档
+- [Ollama Thinking Capability](https://docs.ollama.com/capabilities/thinking) - 推理模式说明
+- [Ollama Modelfile Parameters](https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values) - 模型参数说明
+

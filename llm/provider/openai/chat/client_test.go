@@ -48,9 +48,11 @@ func TestChat_BasicRequest(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		BaseURL:        "https://api.openai.com/v1",
-		APIKey:         "test-key",
-		HTTPClient:     httpClient,
+		BaseConfig: BaseConfig{
+			BaseURL:    "https://api.openai.com/v1",
+			APIKey:     "test-key",
+			HTTPClient: httpClient,
+		},
 		DefaultOptions: []llm.ChatOption{llm.WithModel("gpt-4o-mini")},
 	})
 	if err != nil {
@@ -121,9 +123,11 @@ func TestChat_MultimodalAndToolsRequest(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		BaseURL:        "https://example.test/v1",
-		APIKey:         "tok",
-		HTTPClient:     httpClient,
+		BaseConfig: BaseConfig{
+			BaseURL:    "https://example.test/v1",
+			APIKey:     "tok",
+			HTTPClient: httpClient,
+		},
 		DefaultOptions: []llm.ChatOption{llm.WithModel("gpt-4o-mini")},
 	})
 	if err != nil {
@@ -200,9 +204,11 @@ data: [DONE]
 	}
 
 	c, err := New(Config{
-		BaseURL:        "https://api.openai.com/v1",
-		APIKey:         "test-key",
-		HTTPClient:     httpClient,
+		BaseConfig: BaseConfig{
+			BaseURL:    "https://api.openai.com/v1",
+			APIKey:     "test-key",
+			HTTPClient: httpClient,
+		},
 		DefaultOptions: []llm.ChatOption{llm.WithModel("gpt-4o-mini")},
 	})
 	if err != nil {
@@ -263,8 +269,10 @@ func TestChat_APIErrorResponse(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		APIKey:         "invalid-key",
-		HTTPClient:     httpClient,
+		BaseConfig: BaseConfig{
+			APIKey:     "invalid-key",
+			HTTPClient: httpClient,
+		},
 		DefaultOptions: []llm.ChatOption{llm.WithModel("gpt-4o-mini")},
 	})
 	if err != nil {
@@ -330,9 +338,11 @@ func TestChat_ExtraFieldsOverride(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		BaseURL:        "https://example.test/v1",
-		APIKey:         "tok",
-		HTTPClient:     httpClient,
+		BaseConfig: BaseConfig{
+			BaseURL:    "https://example.test/v1",
+			APIKey:     "tok",
+			HTTPClient: httpClient,
+		},
 		DefaultOptions: []llm.ChatOption{llm.WithModel("gpt-4o-mini")},
 	})
 	if err != nil {
@@ -386,9 +396,11 @@ func TestChat_ResponseHook(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		BaseURL:        "https://example.test/v1",
-		APIKey:         "tok",
-		HTTPClient:     httpClient,
+		BaseConfig: BaseConfig{
+			BaseURL:    "https://example.test/v1",
+			APIKey:     "tok",
+			HTTPClient: httpClient,
+		},
 		DefaultOptions: []llm.ChatOption{llm.WithModel("gpt-4o-mini")},
 	})
 	if err != nil {
@@ -439,9 +451,11 @@ func TestChat_ErrorHook(t *testing.T) {
 	}
 
 	c, err := New(Config{
-		BaseURL:        "https://example.test/v1",
-		APIKey:         "tok",
-		HTTPClient:     httpClient,
+		BaseConfig: BaseConfig{
+			BaseURL:    "https://example.test/v1",
+			APIKey:     "tok",
+			HTTPClient: httpClient,
+		},
 		DefaultOptions: []llm.ChatOption{llm.WithModel("gpt-4o-mini")},
 	})
 	if err != nil {

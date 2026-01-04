@@ -19,8 +19,12 @@ type wireMessage struct {
 
 	ToolCallID string `json:"tool_call_id,omitempty"`
 
-	ReasoningContent string         `json:"reasoning_content,omitempty"`
-	ToolCalls        []wireToolCall `json:"tool_calls,omitempty"`
+	// DeepSeek API 使用 reasoning_content
+	ReasoningContent string `json:"reasoning_content,omitempty"`
+	// Ollama DeepSeek R1 使用 reasoning
+	Reasoning string `json:"reasoning,omitempty"`
+
+	ToolCalls []wireToolCall `json:"tool_calls,omitempty"`
 }
 
 type usage struct {
@@ -67,7 +71,10 @@ type wireDelta struct {
 	Role    string `json:"role,omitempty"`
 	Content string `json:"content,omitempty"`
 
+	// DeepSeek API 使用 reasoning_content
 	ReasoningContent string `json:"reasoning_content,omitempty"`
+	// Ollama DeepSeek R1 使用 reasoning
+	Reasoning string `json:"reasoning,omitempty"`
 
 	ToolCalls []wireToolCall `json:"tool_calls,omitempty"`
 }

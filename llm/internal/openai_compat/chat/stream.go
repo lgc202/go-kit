@@ -73,12 +73,20 @@ func (s *stream) Recv() (schema.StreamEvent, error) {
 		for _, c := range chunk.Choices {
 			d := c.Delta
 
-			if d.Content != "" || d.ReasoningContent != "" || len(d.ToolCalls) > 0 {
+			// 优先使用 reasoning_content，为空则使用 reasoning
+			// DeepSeek API: reasoning_content
+			// Ollama DeepSeek R1: reasoning
+			reasoningContent := d.ReasoningContent
+			if reasoningContent == "" {
+				reasoningContent = d.Reasoning
+			}
+
+			if d.Content != "" || reasoningContent != "" || len(d.ToolCalls) > 0 {
 				ev := schema.StreamEvent{
 					Type:        schema.StreamEventDelta,
 					ChoiceIndex: c.Index,
 					Delta:       d.Content,
-					Reasoning:   d.ReasoningContent,
+					Reasoning:   reasoningContent,
 				}
 				ev.ToolCalls = toSchemaToolCalls(d.ToolCalls)
 				if s.keepRaw {
