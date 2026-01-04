@@ -2,22 +2,6 @@
 
 go-kit 的企业级 DeepSeek API 客户端。
 
-## 功能特性
-
-- ✅ **基础对话与流式输出** - 完整支持对话补全和 SSE 流式传输
-- ✅ **推理模型** - 原生支持 `deepseek-reasoner` 及思维控制
-- ✅ **工具/函数调用** - 完整的函数调用及工具选择模式
-- ✅ **JSON 模式** - 支持 `json_object` 和 `json_schema` 结构化输出
-- ✅ **Token 使用详情** - 包含缓存命中/未命中和推理 token
-- ✅ **流式选项** - 流式响应中包含使用统计
-- ✅ **类型安全选项** - provider 特定的便捷函数
-
-## 安装
-
-```go
-import deepseek "github.com/lgc202/go-kit/llm/provider/deepseek/chat"
-```
-
 ## 快速开始
 
 ```go
@@ -36,7 +20,9 @@ import (
 	func main() {
 	    client, err := deepseek.New(deepseek.Config{
 	        APIKey: os.Getenv("DEEPSEEK_API_KEY"),
-	        DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-chat")},
+	        DefaultOptions: []llm.ChatOption{
+	            llm.WithModel("deepseek-chat"),
+	        },
 	    })
     if err != nil {
         panic(err)
@@ -53,13 +39,6 @@ import (
     // 输出: 等于 4。
 }
 ```
-
-## 模型
-
-| 模型 | 描述 | 最大 Token |
-|-------|-------------|------------|
-| `deepseek-chat` | 通用对话模型 | 128K |
-| `deepseek-reasoner` | 高级推理模型 | 64K |
 
 ## 选项配置
 
@@ -132,7 +111,9 @@ llm.WithResponseFormat(schema.ResponseFormat{
 ```go
 	client, _ := deepseek.New(deepseek.Config{
 	    APIKey: os.Getenv("DEEPSEEK_API_KEY"),
-	    DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-reasoner")},
+	    DefaultOptions: []llm.ChatOption{
+	        llm.WithModel("deepseek-reasoner"),
+	    },
 	})
 
 resp, err := client.Chat(context.Background(), []schema.Message{
@@ -394,7 +375,3 @@ if provider == llm.ProviderDeepSeek {
 
 - [DeepSeek API 文档](https://api-docs.deepseek.com/)
 - [llm 包](../../README.md)
-
-## 许可证
-
-MIT

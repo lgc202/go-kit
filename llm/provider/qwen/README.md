@@ -1,16 +1,8 @@
 # Qwen (通义千问) Provider
 
-通义千问 DashScope API 客户端
+go-kit 的企业级通义千问 API 客户端。
 
-## 安装
-
-```bash
-go get github.com/lgc202/go-kit/llm/provider/qwen
-```
-
-## 使用
-
-### 基本用法
+## 快速开始
 
 ```go
 package main
@@ -18,128 +10,227 @@ package main
 import (
     "context"
     "fmt"
-    "log"
+    "os"
 
+    "github.com/lgc202/go-kit/llm"
     qwen "github.com/lgc202/go-kit/llm/provider/qwen/chat"
     "github.com/lgc202/go-kit/llm/schema"
 )
 
 func main() {
     client, err := qwen.New(qwen.Config{
-        APIKey: "your-api-key",
+        APIKey: os.Getenv("DASHSCOPE_API_KEY"),
+        DefaultOptions: []llm.ChatOption{
+            llm.WithModel("qwen-plus"),
+        },
     })
     if err != nil {
-        log.Fatal(err)
+        panic(err)
     }
 
     resp, err := client.Chat(context.Background(), []schema.Message{
-        schema.UserText("什么是人工智能?"),
+        schema.UserMessage("什么是 Go 语言？"),
     })
     if err != nil {
-        log.Fatal(err)
+        panic(err)
     }
 
     fmt.Println(resp.Choices[0].Message.Text())
 }
 ```
 
-### 使用请求选项
+## 选项配置
+
+### 基础选项
 
 ```go
-import "github.com/lgc202/go-kit/llm"
-
-resp, err := client.Chat(context.Background(), []schema.Message{
-    schema.UserText("写一首诗"),
-},
-    llm.WithModel("qwen-plus"),
-    llm.WithTemperature(0.7),
-    llm.WithMaxCompletionTokens(4096),
-)
+llm.WithTemperature(0.7)
+llm.WithMaxCompletionTokens(4096)
+llm.WithTopP(0.9)
 ```
 
-### 启用深度思考模式
-
-Qwen 支持深度思考模型，通过 `qwen.WithThinking()` 启用：
+### Qwen 特有选项
 
 ```go
-import qwen "github.com/lgc202/go-kit/llm/provider/qwen/chat"
+// 启用深度思考模式
+qwen.WithThinking(true)
 
-resp, err := client.Chat(context.Background(), []schema.Message{
-    schema.UserText("解决这个数学问题: ..."),
+// 或使用通用 ExtraField
+llm.WithExtraField("enable_thinking", true)
+```
+
+## 深度思考模式
+
+Qwen 支持深度思考模型，可以获取模型的推理过程：
+
+```go
+resp, err := client.Chat(ctx, []schema.Message{
+    schema.UserMessage("解决这个数学问题: 如果我有 5 个苹果，吃了 2 个，又买了 3 个，现在有几个？"),
 },
-    llm.WithModel("qwen-plus"),
     qwen.WithThinking(true),
 )
+
+msg := resp.Choices[0].Message
+if msg.ReasoningContent != "" {
+    fmt.Println("推理过程:", msg.ReasoningContent)
+}
+fmt.Println("答案:", msg.Text())
 ```
 
-也可以直接使用 `llm.WithExtraField()`：
+### 禁用推理以提升速度
+
+对于简单问题，禁用推理可以获得更快、更便宜的响应：
 
 ```go
-resp, err := client.Chat(context.Background(), messages,
-    llm.WithModel("qwen-plus"),
-    llm.WithExtraField("enable_thinking", true),
+resp, err := client.Chat(ctx, []schema.Message{
+    schema.UserMessage("法国的首都是哪里？"),
+},
+    qwen.WithThinking(false),
 )
 ```
 
-### 流式响应
+### 流式输出推理内容
+
+在流式响应中分离推理内容和实际内容：
 
 ```go
-stream, err := client.ChatStream(context.Background(), []schema.Message{
-    schema.UserText("讲一个故事"),
-})
-if err != nil {
-    log.Fatal(err)
+stream, err := client.ChatStream(ctx, []schema.Message{
+    schema.UserMessage("计算：15 * 23 - 47"),
+},
+    qwen.WithThinking(true),
+)
+
+for {
+    ev, err := stream.Recv()
+    if err != nil {
+        break
+    }
+    if len(ev.Reasoning) > 0 {
+        fmt.Printf("[思考] %s", ev.Reasoning)
+    }
+    if len(ev.Delta) > 0 {
+        fmt.Printf("[内容] %s", ev.Delta)
+    }
+}
+```
+
+## 工具/函数调用
+
+```go
+weatherTool := schema.Tool{
+    Type: schema.ToolTypeFunction,
+    Function: schema.FunctionDefinition{
+        Name:        "get_weather",
+        Description: "获取指定地点的当前天气",
+        Parameters:  schema.MustJSON(map[string]any{
+            "type": "object",
+            "properties": map[string]any{
+                "location": map[string]any{
+                    "type":        "string",
+                    "description": "城市名称",
+                },
+            },
+            "required": []string{"location"},
+        }),
+    },
 }
 
-for stream.Next() {
-    event := stream.Event()
-    if event.Type == llm.StreamEventDelta {
+resp, err := client.Chat(ctx, []schema.Message{
+    schema.UserMessage("北京今天天气怎么样？"),
+},
+    llm.WithTools(weatherTool),
+)
+
+msg := resp.Choices[0].Message
+if len(msg.ToolCalls) > 0 {
+    for _, tc := range msg.ToolCalls {
+        fmt.Printf("调用: %s\n", tc.Function.Name)
+        fmt.Printf("参数: %s\n", tc.Function.Arguments)
+    }
+}
+```
+
+## 流式输出
+
+### 基础流式
+
+```go
+stream, err := client.ChatStream(ctx, []schema.Message{
+    schema.UserMessage("讲一个故事"),
+})
+defer stream.Close()
+
+for {
+    event, err := stream.Recv()
+    if err != nil {
+        break
+    }
+    if event.Type == schema.StreamEventDelta {
         fmt.Print(event.Delta)
     }
 }
-if err := stream.Err(); err != nil {
-    log.Fatal(err)
-}
 ```
 
-## 支持的模型
-
-| 模型名称 | 描述 |
-|---------|------|
-| qwen-turbo | 速度快，成本低 |
-| qwen-plus | 性能均衡 |
-| qwen-max | 性能最强 |
-| qwen-long | 长上下文支持 |
-
-## Qwen 特有参数
-
-### WithThinking
-
-启用或禁用深度思考模式
+### 流式输出包含使用统计
 
 ```go
-qwen.WithThinking(true)  // 启用
-qwen.WithThinking(false) // 禁用
+stream, err := client.ChatStream(ctx, []schema.Message{
+    schema.UserMessage("你好"),
+},
+    llm.WithStreamIncludeUsage(),
+)
 ```
 
-参考文档: [https://www.alibabacloud.com/help/en/model-studio/deep-thinking](https://www.alibabacloud.com/help/en/model-studio/deep-thinking)
+## 配置
+
+### 客户端级默认配置
+
+```go
+client, err := qwen.New(qwen.Config{
+    APIKey: os.Getenv("DASHSCOPE_API_KEY"),
+    DefaultOptions: []llm.ChatOption{
+        llm.WithModel("qwen-plus"),
+        llm.WithTemperature(0.7),
+    },
+})
+```
+
+### 自定义 Base URL
+
+```go
+client, err := qwen.New(qwen.Config{
+    BaseURL: "https://your-proxy.example.com",
+    APIKey:  os.Getenv("DASHSCOPE_API_KEY"),
+})
+```
+
+### 自定义 HTTP 客户端
+
+```go
+httpClient := &http.Client{
+    Timeout: 30 * time.Second,
+}
+
+client, err := qwen.New(qwen.Config{
+    APIKey:     os.Getenv("DASHSCOPE_API_KEY"),
+    HTTPClient: httpClient,
+})
+```
+
+### 默认请求头
+
+```go
+headers := make(http.Header)
+headers.Set("X-Custom-Header", "value")
+
+client, err := qwen.New(qwen.Config{
+    APIKey:         os.Getenv("DASHSCOPE_API_KEY"),
+    DefaultHeaders: headers,
+})
+```
 
 ## API 文档
 
-详细 API 文档请参考: [https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api](https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api)
-
-## 配置选项
-
-```go
-type Config struct {
-    BaseURL    string        // API 基础 URL，默认: https://dashscope.aliyuncs.com/compatible-mode/v1
-    APIKey     string        // API 密钥 (必需)
-    HTTPClient *http.Client  // 自定义 HTTP 客户端 (可选)
-
-    // DefaultHeaders 请求级 headers 会覆盖这些默认值
-    DefaultHeaders http.Header
-
-    // DefaultOptions 客户端级别的默认请求选项
-    DefaultOptions []llm.ChatOption
-}
-```
+- [通义千问 API 文档](https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api)
+- [深度思考模式](https://www.alibabacloud.com/help/en/model-studio/deep-thinking)
+- [llm 包](../../README.md)

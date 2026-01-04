@@ -1,16 +1,8 @@
 # Kimi (Moonshot AI) Provider
 
-Kimi (Moonshot AI) API 客户端
+go-kit 的企业级 Kimi (Moonshot AI) API 客户端。
 
-## 安装
-
-```bash
-go get github.com/lgc202/go-kit/llm/provider/kimi
-```
-
-## 使用
-
-### 基本用法
+## 快速开始
 
 ```go
 package main
@@ -18,93 +10,168 @@ package main
 import (
     "context"
     "fmt"
-    "log"
+    "os"
 
+    "github.com/lgc202/go-kit/llm"
     kimi "github.com/lgc202/go-kit/llm/provider/kimi/chat"
     "github.com/lgc202/go-kit/llm/schema"
 )
 
 func main() {
     client, err := kimi.New(kimi.Config{
-        APIKey: "your-api-key",
+        APIKey: os.Getenv("MOONSHOT_API_KEY"),
+        DefaultOptions: []llm.ChatOption{
+            llm.WithModel("moonshot-v1-8k"),
+        },
     })
     if err != nil {
-        log.Fatal(err)
+        panic(err)
     }
 
     resp, err := client.Chat(context.Background(), []schema.Message{
-        schema.UserText("什么是人工智能?"),
+        schema.UserMessage("什么是 Go 语言？"),
     })
     if err != nil {
-        log.Fatal(err)
+        panic(err)
     }
 
     fmt.Println(resp.Choices[0].Message.Text())
 }
 ```
 
-### 使用请求选项
+## 选项配置
 
-Kimi 支持所有标准 OpenAI 兼容参数，通过 `llm` 包的选项函数设置：
+### 基础选项
 
 ```go
-import "github.com/lgc202/go-kit/llm"
-
-resp, err := client.Chat(context.Background(), []schema.Message{
-    schema.UserText("写一首诗"),
-},
-    llm.WithModel("moonshot-v1-8k"),
-    llm.WithTemperature(0.7),
-    llm.WithMaxCompletionTokens(4096),
-    llm.WithTopP(0.9),
-)
+llm.WithTemperature(0.7)
+llm.WithMaxCompletionTokens(4096)
+llm.WithTopP(0.9)
 ```
 
-### 流式响应
+### 工具调用
 
 ```go
-stream, err := client.ChatStream(context.Background(), []schema.Message{
-    schema.UserText("讲一个故事"),
-})
-if err != nil {
-    log.Fatal(err)
+llm.WithTools(tool1, tool2)
+llm.WithToolChoice(schema.ToolChoice{Mode: schema.ToolChoiceAuto})
+```
+
+## 工具/函数调用
+
+```go
+weatherTool := schema.Tool{
+    Type: schema.ToolTypeFunction,
+    Function: schema.FunctionDefinition{
+        Name:        "get_weather",
+        Description: "获取指定地点的当前天气",
+        Parameters:  schema.MustJSON(map[string]any{
+            "type": "object",
+            "properties": map[string]any{
+                "location": map[string]any{
+                    "type":        "string",
+                    "description": "城市名称",
+                },
+            },
+            "required": []string{"location"},
+        }),
+    },
 }
 
-for stream.Next() {
-    event := stream.Event()
-    if event.Type == llm.StreamEventDelta {
+resp, err := client.Chat(ctx, []schema.Message{
+    schema.UserMessage("北京今天天气怎么样？"),
+},
+    llm.WithTools(weatherTool),
+)
+
+msg := resp.Choices[0].Message
+if len(msg.ToolCalls) > 0 {
+    for _, tc := range msg.ToolCalls {
+        fmt.Printf("调用: %s\n", tc.Function.Name)
+        fmt.Printf("参数: %s\n", tc.Function.Arguments)
+    }
+}
+```
+
+## 流式输出
+
+### 基础流式
+
+```go
+stream, err := client.ChatStream(ctx, []schema.Message{
+    schema.UserMessage("讲一个故事"),
+})
+defer stream.Close()
+
+for {
+    event, err := stream.Recv()
+    if err != nil {
+        break
+    }
+    if event.Type == schema.StreamEventDelta {
         fmt.Print(event.Delta)
     }
 }
-if err := stream.Err(); err != nil {
-    log.Fatal(err)
-}
 ```
 
-## 支持的模型
+### 流式输出包含使用统计
 
-| 模型名称 | 描述 |
-|---------|------|
-| moonshot-v1-8k | 8K 上下文窗口 |
-| moonshot-v1-32k | 32K 上下文窗口 |
-| moonshot-v1-128k | 128K 上下文窗口 |
+```go
+stream, err := client.ChatStream(ctx, []schema.Message{
+    schema.UserMessage("你好"),
+},
+    llm.WithStreamIncludeUsage(),
+)
+```
+
+## 配置
+
+### 客户端级默认配置
+
+```go
+client, err := kimi.New(kimi.Config{
+    APIKey: os.Getenv("MOONSHOT_API_KEY"),
+    DefaultOptions: []llm.ChatOption{
+        llm.WithModel("moonshot-v1-8k"),
+        llm.WithTemperature(0.7),
+    },
+})
+```
+
+### 自定义 Base URL
+
+```go
+client, err := kimi.New(kimi.Config{
+    BaseURL: "https://your-proxy.example.com",
+    APIKey:  os.Getenv("MOONSHOT_API_KEY"),
+})
+```
+
+### 自定义 HTTP 客户端
+
+```go
+httpClient := &http.Client{
+    Timeout: 30 * time.Second,
+}
+
+client, err := kimi.New(kimi.Config{
+    APIKey:     os.Getenv("MOONSHOT_API_KEY"),
+    HTTPClient: httpClient,
+})
+```
+
+### 默认请求头
+
+```go
+headers := make(http.Header)
+headers.Set("X-Custom-Header", "value")
+
+client, err := kimi.New(kimi.Config{
+    APIKey:         os.Getenv("MOONSHOT_API_KEY"),
+    DefaultHeaders: headers,
+})
+```
 
 ## API 文档
 
-详细 API 文档请参考: [https://platform.moonshot.cn/docs](https://platform.moonshot.cn/docs)
-
-## 配置选项
-
-```go
-type Config struct {
-    BaseURL    string        // API 基础 URL，默认: https://api.moonshot.cn/v1
-    APIKey     string        // API 密钥 (必需)
-    HTTPClient *http.Client  // 自定义 HTTP 客户端 (可选)
-
-    // DefaultHeaders 请求级 headers 会覆盖这些默认值
-    DefaultHeaders http.Header
-
-    // DefaultOptions 客户端级别的默认请求选项
-    DefaultOptions []llm.ChatOption
-}
-```
+- [Kimi API 文档](https://platform.moonshot.cn/docs)
+- [llm 包](../../README.md)
