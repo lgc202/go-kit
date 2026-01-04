@@ -289,5 +289,5 @@ headers.Set("X-Custom-Header", "value")
 
 ## API 参考
 
-- [OpenAI API 文档](https://platform.openai.com/docs/api-reference)
+- [OpenAI Chat Completions API](https://platform.openai.com/docs/api-reference/chat) - Chat Completions API 文档
 - [llm 包](../../README.md)

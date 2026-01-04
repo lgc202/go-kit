@@ -70,33 +70,32 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// 第一轮：用户询问天气
 	messages := []schema.Message{
 		schema.UserMessage("北京和上海今天天气怎么样？"),
 	}
 
-	resp, err := client.Chat(context.Background(), messages,
-		llm.WithTools(weatherTool),
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// 循环：模型可能需要多次调用工具（例如分别查询多个城市）
+	const maxSteps = 8
+	for step := 0; step < maxSteps; step++ {
+		resp, err := client.Chat(context.Background(), messages, llm.WithTools(weatherTool))
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	msg := resp.Choices[0].Message
-
-	// 检查是否需要调用工具
-	if len(msg.ToolCalls) > 0 {
-		fmt.Println("模型决定调用工具:")
-
-		// 添加助手的回复到历史
+		msg := resp.Choices[0].Message
 		messages = append(messages, msg)
 
-		// 执行每个工具调用
+		if len(msg.ToolCalls) == 0 {
+			fmt.Println("\n最终回复:")
+			fmt.Println(msg.Text())
+			return
+		}
+
+		fmt.Println("模型决定调用工具:")
 		for _, tc := range msg.ToolCalls {
 			fmt.Printf("  - 调用: %s\n", tc.Function.Name)
 			fmt.Printf("    参数: %s\n", tc.Function.Arguments)
 
-			// 解析参数
 			var args struct {
 				Location string `json:"location"`
 			}
@@ -104,25 +103,13 @@ func main() {
 				log.Fatal(err)
 			}
 
-			// 调用工具
 			result, err := getWeather(args.Location)
 			if err != nil {
 				log.Fatal(err)
 			}
-
-			// 添加工具结果到历史
 			messages = append(messages, schema.ToolResultMessage(tc.ID, result))
 		}
-
-		// 第二轮：发送工具结果回模型
-		resp2, err := client.Chat(context.Background(), messages)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fmt.Println("\n最终回复:")
-		fmt.Println(resp2.Choices[0].Message.Text())
-	} else {
-		fmt.Println("模型回复:", msg.Text())
 	}
+
+	log.Fatalf("exceeded max tool-call steps (%d)", maxSteps)
 }

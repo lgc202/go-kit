@@ -100,6 +100,10 @@ type wireRequestMessage struct {
 
 	Name       string `json:"name,omitempty"`
 	ToolCallID string `json:"tool_call_id,omitempty"`
+
+	// ToolCalls 用于回放包含 tool_calls 的 assistant 消息，
+	// 以保证后续 role=tool 的消息有对应的前置 tool_calls。
+	ToolCalls []wireToolCall `json:"tool_calls,omitempty"`
 }
 
 type wireRequestContent struct {

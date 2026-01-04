@@ -56,6 +56,22 @@ func toSchemaToolCalls(in []wireToolCall) []schema.ToolCall {
 	return out
 }
 
+func toWireToolCalls(in []schema.ToolCall) []wireToolCall {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]wireToolCall, len(in))
+	for i, tc := range in {
+		out[i] = wireToolCall{
+			ID:   tc.ID,
+			Type: wireToolType(tc.Type),
+		}
+		out[i].Function.Name = tc.Function.Name
+		out[i].Function.Arguments = tc.Function.Arguments
+	}
+	return out
+}
+
 func toSchemaMessage(m wireMessage) schema.Message {
 	parts := toSchemaContentParts(m.Content)
 
@@ -197,6 +213,9 @@ func toWireMessage(provider string, m schema.Message) (wireRequestMessage, error
 	}
 	if m.ToolCallID != "" {
 		out.ToolCallID = m.ToolCallID
+	}
+	if len(m.ToolCalls) > 0 {
+		out.ToolCalls = toWireToolCalls(m.ToolCalls)
 	}
 
 	if len(m.Content) > 0 {

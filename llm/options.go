@@ -72,8 +72,9 @@ type ChatConfig struct {
 	// 范围 0-1，默认值 1。模型只考虑概率质量总和达到 topP 的最小 token 集合
 	TopP *float64
 
-	// MaxTokens 设置生成的最大 token 数（已弃用，建议使用 MaxCompletionTokens）
-	// 注意：OpenAI 已弃用此参数，推荐使用 MaxCompletionTokens
+	// MaxTokens 设置生成的最大 token 数
+	// 注意：OpenAI 已将此参数标记为 deprecated（但仍可用），推荐使用 MaxCompletionTokens
+	// 其他厂商（DeepSeek、Kimi、Qwen、Ollama）仍广泛支持此参数
 	MaxTokens *int
 
 	// MaxCompletionTokens 设置生成的最大 token 数上限
@@ -273,7 +274,9 @@ func WithTopP(v float64) ChatOption {
 	})
 }
 
-// WithMaxTokens 设置生成的最大 token 数（已弃用，建议使用 WithMaxCompletionTokens）
+// WithMaxTokens 设置生成的最大 token 数
+// 注意：OpenAI 已将此参数标记为 deprecated（但仍可用），推荐使用 WithMaxCompletionTokens
+// 其他厂商（DeepSeek、Kimi、Qwen、Ollama）仍广泛支持此参数
 func WithMaxTokens(v int) ChatOption {
 	return chatOptionFunc(func(c *ChatConfig) {
 		c.MaxTokens = &v

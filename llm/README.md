@@ -2,6 +2,14 @@
 
 Go 语言 LLM 客户端库，提供统一、类型安全的接口来与各大厂商的大模型交互。
 
+## API 兼容性说明
+
+本库基于 **OpenAI Chat Completions API** 格式实现，这是目前业界通用的标准协议，被各大厂商广泛兼容。
+
+- ✅ 支持所有兼容 OpenAI 格式的服务商
+- ✅ 统一的请求/响应结构
+- ⚠️ 不支持 OpenAI 2025 新推出的 Responses API（这是可选的高级格式，主流厂商尚未跟进）
+
 ## 支持的 Provider
 
 | Provider | Chat | Embeddings | 文档 |
@@ -364,14 +372,16 @@ fmt.Printf("缓存命中: %d\n", usage.PromptCacheHitTokens)
 
 ```bash
 # DeepSeek 示例
-go run examples/deepseek/basic/main.go       # 基础对话
-go run examples/deepseek/reasoning/main.go   # 推理模型
-go run examples/deepseek/tools/main.go       # 工具调用
-go run examples/deepseek/stream/main.go      # 流式输出
+API_KEY=xxx MODEL=deepseek-chat go run examples/deepseek/basic/main.go       # 基础对话
+API_KEY=xxx MODEL=deepseek-reasoner go run examples/deepseek/reasoning/main.go   # 推理模型
+API_KEY=xxx MODEL=deepseek-chat go run examples/deepseek/tools/main.go       # 工具调用
+API_KEY=xxx MODEL=deepseek-chat go run examples/deepseek/stream/main.go      # 流式输出
 
 # Ollama 示例
-go run examples/ollama/basic/main.go         # 基础对话
-go run examples/ollama/reasoning/main.go     # 推理模型
+MODEL=qwen2.5 go run examples/ollama/basic/main.go         # 基础对话
+MODEL=deepseek-r1:1.5b go run examples/ollama/reasoning/main.go     # 推理模型
+MODEL=llama3.2 go run examples/ollama/stream/main.go      # 流式输出
+MODEL=llama3.2 go run examples/ollama/tools/main.go       # 工具调用
 ```
 
 ## 相关文档
