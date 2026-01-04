@@ -45,7 +45,6 @@ func New(cfg Config) (*Client, error) {
 		HTTPClient:     cfg.HTTPClient,
 		DefaultHeaders: cfg.DefaultHeaders,
 		DefaultOptions: cfg.DefaultOptions,
-		Adapter:        nil,
 	})
 	if err != nil {
 		return nil, err

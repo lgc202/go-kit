@@ -39,8 +39,6 @@ type Config struct {
 
 	// DefaultOptions 提供客户端级别的默认请求选项
 	DefaultOptions []llm.RequestOption
-
-	Adapter Adapter
 }
 
 type Client struct {
@@ -53,7 +51,6 @@ type Client struct {
 	httpClient    *http.Client
 	defaultHeader http.Header
 	defaultOpts   []llm.RequestOption
-	adapter       Adapter
 }
 
 var _ llm.ChatModel = (*Client)(nil)
@@ -105,7 +102,6 @@ func New(cfg Config) (*Client, error) {
 		httpClient:    hc,
 		defaultHeader: hdr,
 		defaultOpts:   slices.Clone(cfg.DefaultOptions),
-		adapter:       cfg.Adapter,
 	}, nil
 }
 
@@ -149,7 +145,7 @@ func (c *Client) ChatStream(ctx context.Context, messages []schema.Message, opts
 		return nil, err
 	}
 
-	return newStream(c.provider, c.adapter, resp.Body, reqCfg.KeepRaw), nil
+	return newStream(c.provider, resp.Body, reqCfg.KeepRaw, reqCfg.StreamEventHooks), nil
 }
 
 // doRequest 执行 HTTP 请求
@@ -179,7 +175,7 @@ func (c *Client) doRequest(ctx context.Context, payload any, cfg llm.RequestConf
 		if rerr != nil {
 			return nil, fmt.Errorf("%s: http %d (also failed to read error body: %v)", c.provider, resp.StatusCode, rerr)
 		}
-		return nil, c.parseError(resp.StatusCode, respBytes)
+		return nil, c.parseError(resp.StatusCode, respBytes, cfg.ErrorHooks)
 	}
 
 	return resp, nil
@@ -187,12 +183,12 @@ func (c *Client) doRequest(ctx context.Context, payload any, cfg llm.RequestConf
 
 // parseChatResponse 解析 chat 响应
 func (c *Client) parseChatResponse(resp *http.Response, cfg llm.RequestConfig) (schema.ChatResponse, error) {
-	if cfg.KeepRaw || c.adapter != nil {
+	if cfg.KeepRaw || len(cfg.ResponseHooks) > 0 {
 		respBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return schema.ChatResponse{}, fmt.Errorf("%s: read response: %w", c.provider, err)
 		}
-		return c.mapChatResponseBytes(respBytes, cfg.KeepRaw)
+		return c.mapChatResponseBytes(respBytes, cfg.KeepRaw, cfg.ResponseHooks)
 	}
 
 	var in chatCompletionResponse
@@ -288,13 +284,6 @@ func (c *Client) buildChatRequest(messages []schema.Message, cfg llm.RequestConf
 	req.extra = cfg.ExtraFields
 	req.allowExtraFieldOverride = cfg.AllowExtraFieldOverride
 
-	// provider-specific extensions
-	if c.adapter != nil {
-		if err := c.adapter.ApplyRequestExtensions(&req, cfg); err != nil {
-			return chatCompletionRequest{}, err
-		}
-	}
-
 	return req, nil
 }
 
@@ -311,7 +300,7 @@ func (c *Client) mapMessages(messages []schema.Message) ([]wireRequestMessage, e
 	return reqMsgs, nil
 }
 
-func (c *Client) mapChatResponseBytes(raw []byte, keepRaw bool) (schema.ChatResponse, error) {
+func (c *Client) mapChatResponseBytes(raw []byte, keepRaw bool, hooks []llm.ResponseHook) (schema.ChatResponse, error) {
 	var in chatCompletionResponse
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return schema.ChatResponse{}, fmt.Errorf("%s: decode response: %w", c.provider, err)
@@ -322,9 +311,11 @@ func (c *Client) mapChatResponseBytes(raw []byte, keepRaw bool) (schema.ChatResp
 		out.Raw = json.RawMessage(raw)
 	}
 
-	// 调用 adapter 丰富响应数据
-	if c.adapter != nil {
-		if err := c.adapter.EnrichResponse(&out, json.RawMessage(raw)); err != nil {
+	for _, h := range hooks {
+		if h == nil {
+			continue
+		}
+		if err := h(&out, json.RawMessage(raw)); err != nil {
 			return schema.ChatResponse{}, err
 		}
 	}
@@ -333,10 +324,12 @@ func (c *Client) mapChatResponseBytes(raw []byte, keepRaw bool) (schema.ChatResp
 }
 
 // parseError 解析 API 错误响应
-func (c *Client) parseError(statusCode int, body []byte) error {
-	// 首先尝试使用 adapter 解析 provider 特定错误
-	if c.adapter != nil {
-		if err := c.adapter.ParseError(c.provider, statusCode, body); err != nil {
+func (c *Client) parseError(statusCode int, body []byte, hooks []llm.ErrorHook) error {
+	for _, h := range hooks {
+		if h == nil {
+			continue
+		}
+		if err := h(llm.Provider(c.provider), statusCode, body); err != nil {
 			return err
 		}
 	}

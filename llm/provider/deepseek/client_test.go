@@ -178,3 +178,66 @@ func TestChatStream_BasicDelta(t *testing.T) {
 		t.Fatalf("event: %#v", ev)
 	}
 }
+
+func TestChatStream_EventHookCanEnrichExtraFields(t *testing.T) {
+	t.Parallel()
+
+	httpClient := &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			h := make(http.Header)
+			h.Set("Content-Type", "text/event-stream")
+
+			body := "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hi\"}}],\"x_provider_meta\":{\"foo\":\"bar\"}}\n\n" +
+				"data: [DONE]\n\n"
+
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Header:     h,
+				Request:    r,
+			}, nil
+		}),
+	}
+
+	c, err := New(Config{
+		BaseURL:        "https://example.test",
+		APIKey:         "tok",
+		HTTPClient:     httpClient,
+		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-chat")},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	st, err := c.ChatStream(context.Background(), []schema.Message{schema.UserMessage("Hi")},
+		llm.WithStreamEventHook(func(dst *schema.StreamEvent, raw json.RawMessage) error {
+			var m map[string]any
+			if err := json.Unmarshal(raw, &m); err != nil {
+				return err
+			}
+			if dst.ExtraFields == nil {
+				dst.ExtraFields = make(map[string]any)
+			}
+			dst.ExtraFields["x_provider_meta"] = m["x_provider_meta"]
+			return nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("ChatStream: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+
+	ev, err := st.Recv()
+	if err != nil {
+		t.Fatalf("Recv: %v", err)
+	}
+	if ev.Type != schema.StreamEventDelta || ev.Delta != "Hi" {
+		t.Fatalf("event: %#v", ev)
+	}
+	if len(ev.Raw) != 0 {
+		t.Fatalf("expected Raw to be empty when KeepRaw=false, got: %s", string(ev.Raw))
+	}
+	if ev.ExtraFields == nil || ev.ExtraFields["x_provider_meta"] == nil {
+		t.Fatalf("expected ExtraFields to be enriched, got: %#v", ev.ExtraFields)
+	}
+}

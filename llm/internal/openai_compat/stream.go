@@ -5,6 +5,7 @@ import (
 	"io"
 	"slices"
 
+	"github.com/lgc202/go-kit/llm"
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
@@ -12,9 +13,9 @@ type stream struct {
 	body io.ReadCloser
 	dec  *sseDecoder
 
-	adapter  Adapter
 	provider string
 	keepRaw  bool
+	hooks    []llm.StreamEventHook
 
 	pending []schema.StreamEvent
 	done    bool
@@ -22,13 +23,13 @@ type stream struct {
 
 const sseDoneToken = "[DONE]"
 
-func newStream(provider string, adapter Adapter, body io.ReadCloser, keepRaw bool) *stream {
+func newStream(provider string, body io.ReadCloser, keepRaw bool, hooks []llm.StreamEventHook) *stream {
 	return &stream{
 		body:     body,
 		dec:      newSSEDecoder(body),
-		adapter:  adapter,
 		provider: provider,
 		keepRaw:  keepRaw,
+		hooks:    hooks,
 	}
 }
 
@@ -55,7 +56,7 @@ func (s *stream) Recv() (schema.StreamEvent, error) {
 
 		rawBytes := []byte(data)
 		var raw json.RawMessage
-		if s.keepRaw || s.adapter != nil {
+		if s.keepRaw || len(s.hooks) > 0 {
 			raw = json.RawMessage(rawBytes)
 			if s.keepRaw {
 				raw = json.RawMessage(slices.Clone(rawBytes))
@@ -112,10 +113,12 @@ func (s *stream) Recv() (schema.StreamEvent, error) {
 			}
 		}
 
-		// 调用 adapter 丰富流式事件
-		if s.adapter != nil {
+		for _, h := range s.hooks {
+			if h == nil {
+				continue
+			}
 			for i := range mapped {
-				if err := s.adapter.EnrichStreamEvent(&mapped[i], raw); err != nil {
+				if err := h(&mapped[i], raw); err != nil {
 					return schema.StreamEvent{}, err
 				}
 			}

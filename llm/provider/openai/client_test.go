@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -228,5 +229,105 @@ func TestChat_DefaultOptionsNotShared(t *testing.T) {
 	}
 	if gotReq["x_foo"] != "bar" {
 		t.Fatalf("default options should not be affected by external mutation: got %#v", gotReq["x_foo"])
+	}
+}
+
+func TestChat_ResponseHookCanEnrichExtraFields(t *testing.T) {
+	t.Parallel()
+
+	httpClient := &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			body := `{
+  "id":"abc",
+  "created": 1,
+  "model":"gpt-4o-mini",
+  "choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"ok"}}],
+  "usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3},
+  "x_provider_meta":{"foo":"bar"}
+}`
+
+			h := make(http.Header)
+			h.Set("Content-Type", "application/json")
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Header:     h,
+				Request:    r,
+			}, nil
+		}),
+	}
+
+	c, err := New(Config{
+		BaseURL:        "https://example.test/v1",
+		APIKey:         "tok",
+		HTTPClient:     httpClient,
+		DefaultOptions: []llm.RequestOption{llm.WithModel("gpt-4o-mini")},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	resp, err := c.Chat(context.Background(), []schema.Message{schema.UserMessage("Hi")},
+		llm.WithResponseHook(func(dst *schema.ChatResponse, raw json.RawMessage) error {
+			var m map[string]any
+			if err := json.Unmarshal(raw, &m); err != nil {
+				return err
+			}
+			if dst.ExtraFields == nil {
+				dst.ExtraFields = make(map[string]any)
+			}
+			dst.ExtraFields["x_provider_meta"] = m["x_provider_meta"]
+			return nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("Chat: %v", err)
+	}
+	if len(resp.Raw) != 0 {
+		t.Fatalf("expected Raw to be empty when KeepRaw=false, got: %s", string(resp.Raw))
+	}
+	if resp.ExtraFields == nil || resp.ExtraFields["x_provider_meta"] == nil {
+		t.Fatalf("expected ExtraFields to be enriched, got: %#v", resp.ExtraFields)
+	}
+}
+
+func TestChat_ErrorHookOverridesError(t *testing.T) {
+	t.Parallel()
+
+	httpClient := &http.Client{
+		Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			body := `{"error":{"message":"nope","code":"bad"}}`
+			h := make(http.Header)
+			h.Set("Content-Type", "application/json")
+			return &http.Response{
+				StatusCode: http.StatusBadRequest,
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Header:     h,
+				Request:    r,
+			}, nil
+		}),
+	}
+
+	c, err := New(Config{
+		BaseURL:        "https://example.test/v1",
+		APIKey:         "tok",
+		HTTPClient:     httpClient,
+		DefaultOptions: []llm.RequestOption{llm.WithModel("gpt-4o-mini")},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	want := errors.New("custom error")
+	_, err = c.Chat(context.Background(), []schema.Message{schema.UserMessage("Hi")},
+		llm.WithErrorHook(func(provider llm.Provider, statusCode int, body []byte) error {
+			if provider != llm.ProviderOpenAI || statusCode != http.StatusBadRequest || len(body) == 0 {
+				t.Fatalf("unexpected args: provider=%q status=%d body=%q", provider, statusCode, string(body))
+			}
+			return want
+		}),
+	)
+	if !errors.Is(err, want) {
+		t.Fatalf("expected custom error, got: %v", err)
 	}
 }

@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"encoding/json"
 	"maps"
 	"net/http"
 	"slices"
@@ -11,6 +12,24 @@ import (
 
 // RequestOption 是请求配置的可选参数函数类型
 type RequestOption func(*RequestConfig)
+
+// ResponseHook allows callers to inspect the raw provider response payload and
+// enrich the unified response (e.g. fill schema.ChatResponse.ExtraFields).
+//
+// Returning a non-nil error aborts the request and returns that error.
+type ResponseHook func(dst *schema.ChatResponse, raw json.RawMessage) error
+
+// StreamEventHook allows callers to inspect each raw streaming chunk payload and
+// enrich the unified stream event (e.g. fill schema.StreamEvent.ExtraFields).
+//
+// Returning a non-nil error aborts the stream and returns that error.
+type StreamEventHook func(dst *schema.StreamEvent, raw json.RawMessage) error
+
+// ErrorHook allows callers to parse provider-specific error responses.
+//
+// It is only called for non-2xx HTTP responses. Returning nil indicates the hook
+// does not handle the error and the client should fall back to default parsing.
+type ErrorHook func(provider Provider, statusCode int, body []byte) error
 
 // RequestConfig 表示单次 chat 请求的配置
 type RequestConfig struct {
@@ -123,7 +142,7 @@ type RequestConfig struct {
 	Headers http.Header
 
 	// ExtraFields 允许 provider 特定的扩展，这些字段会直接合并到请求体中
-	// Provider 也可以通过 adapter 应用自定义逻辑
+	// Provider 也可以通过 hook 应用自定义逻辑
 	ExtraFields map[string]any
 
 	// AllowExtraFieldOverride 控制 ExtraFields 是否允许覆盖已由标准选项设置的请求字段。
@@ -134,6 +153,17 @@ type RequestConfig struct {
 	// 为 true 时，schema.ChatResponse.Raw 和 schema.StreamEvent.Raw 会包含原始响应
 	// 默认为 false 以减少内存占用
 	KeepRaw bool
+
+	// ResponseHooks allows enriching the unified response using the raw provider payload.
+	// Note: setting hooks may cause the client to buffer the whole response body in memory.
+	ResponseHooks []ResponseHook
+
+	// StreamEventHooks allows enriching stream events using each raw provider chunk payload.
+	// Note: setting hooks may cause the stream decoder to retain raw chunk bytes per event.
+	StreamEventHooks []StreamEventHook
+
+	// ErrorHooks allows parsing provider-specific non-2xx error responses.
+	ErrorHooks []ErrorHook
 }
 
 // ApplyRequestOptions 将选项应用到一个新的 RequestConfig 上，返回配置结果。
@@ -416,5 +446,35 @@ func WithAllowExtraFieldOverride(enabled bool) RequestOption {
 func WithKeepRaw(enabled bool) RequestOption {
 	return func(c *RequestConfig) {
 		c.KeepRaw = enabled
+	}
+}
+
+// WithResponseHook adds a hook to enrich the unified response using the raw provider payload.
+func WithResponseHook(h ResponseHook) RequestOption {
+	return func(c *RequestConfig) {
+		if h == nil {
+			return
+		}
+		c.ResponseHooks = append(c.ResponseHooks, h)
+	}
+}
+
+// WithStreamEventHook adds a hook to enrich stream events using each raw provider chunk payload.
+func WithStreamEventHook(h StreamEventHook) RequestOption {
+	return func(c *RequestConfig) {
+		if h == nil {
+			return
+		}
+		c.StreamEventHooks = append(c.StreamEventHooks, h)
+	}
+}
+
+// WithErrorHook adds a hook to parse provider-specific non-2xx error responses.
+func WithErrorHook(h ErrorHook) RequestOption {
+	return func(c *RequestConfig) {
+		if h == nil {
+			return
+		}
+		c.ErrorHooks = append(c.ErrorHooks, h)
 	}
 }
