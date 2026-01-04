@@ -267,7 +267,9 @@ httpClient := &http.Client{
 }
 
 client, err := ollama.New(ollama.Config{
-    HTTPClient: httpClient,
+    BaseConfig: ollama.BaseConfig{
+        HTTPClient: httpClient,
+    },
 })
 ```
 

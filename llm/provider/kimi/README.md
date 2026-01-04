@@ -159,8 +159,10 @@ client, err := kimi.New(kimi.Config{
 
 ```go
 client, err := kimi.New(kimi.Config{
-    BaseURL: "https://your-proxy.example.com",
-    APIKey:  os.Getenv("MOONSHOT_API_KEY"),
+    BaseConfig: kimi.BaseConfig{
+        BaseURL: "https://your-proxy.example.com",
+        APIKey:  os.Getenv("MOONSHOT_API_KEY"),
+    },
 })
 ```
 
@@ -172,8 +174,10 @@ httpClient := &http.Client{
 }
 
 client, err := kimi.New(kimi.Config{
-    APIKey:     os.Getenv("MOONSHOT_API_KEY"),
-    HTTPClient: httpClient,
+    BaseConfig: kimi.BaseConfig{
+        APIKey:     os.Getenv("MOONSHOT_API_KEY"),
+        HTTPClient: httpClient,
+    },
 })
 ```
 
@@ -184,8 +188,10 @@ headers := make(http.Header)
 headers.Set("X-Custom-Header", "value")
 
 client, err := kimi.New(kimi.Config{
-    APIKey:         os.Getenv("MOONSHOT_API_KEY"),
-    DefaultHeaders: headers,
+    BaseConfig: kimi.BaseConfig{
+        APIKey:         os.Getenv("MOONSHOT_API_KEY"),
+        DefaultHeaders: headers,
+    },
 })
 ```
 

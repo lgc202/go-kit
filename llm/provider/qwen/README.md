@@ -217,8 +217,10 @@ client, err := qwen.New(qwen.Config{
 
 ```go
 client, err := qwen.New(qwen.Config{
-    BaseURL: "https://your-proxy.example.com",
-    APIKey:  os.Getenv("DASHSCOPE_API_KEY"),
+    BaseConfig: qwen.BaseConfig{
+        BaseURL: "https://your-proxy.example.com",
+        APIKey:  os.Getenv("DASHSCOPE_API_KEY"),
+    },
 })
 ```
 
@@ -230,8 +232,10 @@ httpClient := &http.Client{
 }
 
 client, err := qwen.New(qwen.Config{
-    APIKey:     os.Getenv("DASHSCOPE_API_KEY"),
-    HTTPClient: httpClient,
+    BaseConfig: qwen.BaseConfig{
+        APIKey:     os.Getenv("DASHSCOPE_API_KEY"),
+        HTTPClient: httpClient,
+    },
 })
 ```
 
@@ -242,8 +246,10 @@ headers := make(http.Header)
 headers.Set("X-Custom-Header", "value")
 
 client, err := qwen.New(qwen.Config{
-    APIKey:         os.Getenv("DASHSCOPE_API_KEY"),
-    DefaultHeaders: headers,
+    BaseConfig: qwen.BaseConfig{
+        APIKey:         os.Getenv("DASHSCOPE_API_KEY"),
+        DefaultHeaders: headers,
+    },
 })
 ```
 

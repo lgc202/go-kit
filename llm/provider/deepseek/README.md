@@ -328,8 +328,10 @@ if usage.CompletionTokensDetails != nil {
 
 ```go
 client, err := deepseek.New(deepseek.Config{
-    BaseURL: "https://your-proxy.example.com",
-    APIKey:  os.Getenv("DEEPSEEK_API_KEY"),
+    BaseConfig: deepseek.BaseConfig{
+        BaseURL: "https://your-proxy.example.com",
+        APIKey:  os.Getenv("DEEPSEEK_API_KEY"),
+    },
 })
 ```
 
@@ -341,8 +343,10 @@ httpClient := &http.Client{
 }
 
 client, err := deepseek.New(deepseek.Config{
-    APIKey:     os.Getenv("DEEPSEEK_API_KEY"),
-    HTTPClient: httpClient,
+    BaseConfig: deepseek.BaseConfig{
+        APIKey:     os.Getenv("DEEPSEEK_API_KEY"),
+        HTTPClient: httpClient,
+    },
 })
 ```
 
@@ -353,8 +357,10 @@ headers := make(http.Header)
 headers.Set("X-Custom-Header", "value")
 
 client, err := deepseek.New(deepseek.Config{
-    APIKey:         os.Getenv("DEEPSEEK_API_KEY"),
-    DefaultHeaders: headers,
+    BaseConfig: deepseek.BaseConfig{
+        APIKey:         os.Getenv("DEEPSEEK_API_KEY"),
+        DefaultHeaders: headers,
+    },
 })
 ```
 
