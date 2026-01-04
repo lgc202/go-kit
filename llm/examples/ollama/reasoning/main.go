@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/lgc202/go-kit/llm"
 	ollama "github.com/lgc202/go-kit/llm/provider/ollama/chat"
@@ -11,13 +12,18 @@ import (
 )
 
 func main() {
+	modelName := os.Getenv("MODEL")
+	if modelName == "" {
+		modelName = "deepseek-r1:1.5b"
+	}
+
 	// 使用 DeepSeek R1 推理模型
 	client, err := ollama.New(ollama.Config{
 		BaseConfig: ollama.BaseConfig{
 			BaseURL: "http://localhost:11434/v1",
 		},
 		DefaultOptions: []llm.ChatOption{
-			llm.WithModel("deepseek-r1:1.5b"),
+			llm.WithModel(modelName),
 		},
 	})
 	if err != nil {

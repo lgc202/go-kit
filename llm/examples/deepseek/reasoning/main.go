@@ -12,9 +12,14 @@ import (
 )
 
 func main() {
-	apiKey := os.Getenv("DEEPSEEK_API_KEY")
+	apiKey := os.Getenv("API_KEY")
 	if apiKey == "" {
-		log.Fatal("DEEPSEEK_API_KEY environment variable is required")
+		log.Fatal("API_KEY environment variable is required")
+	}
+
+	modelName := os.Getenv("MODEL")
+	if modelName == "" {
+		modelName = "deepseek-reasoner"
 	}
 
 	// 创建推理模型客户端
@@ -23,7 +28,7 @@ func main() {
 			APIKey: apiKey,
 		},
 		DefaultOptions: []llm.ChatOption{
-			llm.WithModel("deepseek-reasoner"),
+			llm.WithModel(modelName),
 		},
 	})
 	if err != nil {

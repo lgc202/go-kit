@@ -7,27 +7,29 @@ import (
 	"os"
 
 	"github.com/lgc202/go-kit/llm"
-	deepseek "github.com/lgc202/go-kit/llm/provider/deepseek/chat"
+	ollama "github.com/lgc202/go-kit/llm/provider/ollama/chat"
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
 func main() {
-	apiKey := os.Getenv("API_KEY")
-	if apiKey == "" {
-		log.Fatal("API_KEY environment variable is required")
-	}
-
 	modelName := os.Getenv("MODEL")
 	if modelName == "" {
-		modelName = "deepseek-chat"
+		modelName = "llama3.2"
 	}
 
-	client, err := deepseek.New(deepseek.Config{
-		BaseConfig: deepseek.BaseConfig{
-			APIKey: apiKey,
+	baseURL := os.Getenv("BASE_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost:11434/v1"
+	}
+
+	client, err := ollama.New(ollama.Config{
+		BaseConfig: ollama.BaseConfig{
+			BaseURL: baseURL,
 		},
 		DefaultOptions: []llm.ChatOption{
 			llm.WithModel(modelName),
+			ollama.WithThink(false),
+			llm.WithStreamIncludeUsage(),
 		},
 	})
 	if err != nil {

@@ -12,8 +12,7 @@ import (
 )
 
 func main() {
-	// 从环境变量获取模型名称，默认使用 qwen2.5
-	modelName := os.Getenv("OLLAMA_MODEL")
+	modelName := os.Getenv("MODEL")
 	if modelName == "" {
 		modelName = "qwen2.5"
 	}
