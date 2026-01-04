@@ -1,4 +1,4 @@
-package openai
+package chat
 
 import (
 	"context"
@@ -58,7 +58,7 @@ func TestChat_MultimodalAndToolsRequest(t *testing.T) {
 		BaseURL:        "https://example.test/v1",
 		APIKey:         "tok",
 		HTTPClient:     httpClient,
-		DefaultOptions: []llm.RequestOption{llm.WithModel("gpt-4o-mini")},
+		DefaultOptions: []llm.ChatOption{llm.WithModel("gpt-4o-mini")},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -147,7 +147,7 @@ func TestChat_ExtraFieldsOverride(t *testing.T) {
 		BaseURL:        "https://example.test/v1",
 		APIKey:         "tok",
 		HTTPClient:     httpClient,
-		DefaultOptions: []llm.RequestOption{llm.WithModel("gpt-4o-mini")},
+		DefaultOptions: []llm.ChatOption{llm.WithModel("gpt-4o-mini")},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -210,7 +210,7 @@ func TestChat_DefaultOptionsNotShared(t *testing.T) {
 		BaseURL:    "https://example.test/v1",
 		APIKey:     "tok",
 		HTTPClient: httpClient,
-		DefaultOptions: []llm.RequestOption{
+		DefaultOptions: []llm.ChatOption{
 			llm.WithModel("gpt-4o-mini"),
 			llm.WithExtraFields(extra),
 		},
@@ -261,7 +261,7 @@ func TestChat_ResponseHookCanEnrichExtraFields(t *testing.T) {
 		BaseURL:        "https://example.test/v1",
 		APIKey:         "tok",
 		HTTPClient:     httpClient,
-		DefaultOptions: []llm.RequestOption{llm.WithModel("gpt-4o-mini")},
+		DefaultOptions: []llm.ChatOption{llm.WithModel("gpt-4o-mini")},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -312,7 +312,7 @@ func TestChat_ErrorHookOverridesError(t *testing.T) {
 		BaseURL:        "https://example.test/v1",
 		APIKey:         "tok",
 		HTTPClient:     httpClient,
-		DefaultOptions: []llm.RequestOption{llm.WithModel("gpt-4o-mini")},
+		DefaultOptions: []llm.ChatOption{llm.WithModel("gpt-4o-mini")},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)

@@ -8,8 +8,13 @@ import (
 
 // ChatModel 是用于 chat 的 LLM 的最小化、provider 无关接口
 type ChatModel interface {
-	Chat(ctx context.Context, messages []schema.Message, opts ...RequestOption) (schema.ChatResponse, error)
-	ChatStream(ctx context.Context, messages []schema.Message, opts ...RequestOption) (Stream, error)
+	Chat(ctx context.Context, messages []schema.Message, opts ...ChatOption) (schema.ChatResponse, error)
+	ChatStream(ctx context.Context, messages []schema.Message, opts ...ChatOption) (Stream, error)
+}
+
+// Embedder is the minimal, provider-agnostic interface for text embeddings.
+type Embedder interface {
+	Embed(ctx context.Context, inputs []string, opts ...EmbeddingOption) (schema.EmbeddingResponse, error)
 }
 
 // Stream 是 provider 无关的流式读取器

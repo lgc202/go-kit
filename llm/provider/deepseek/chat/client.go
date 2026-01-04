@@ -1,4 +1,4 @@
-package openai
+package chat
 
 import (
 	"context"
@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	"github.com/lgc202/go-kit/llm"
-	"github.com/lgc202/go-kit/llm/internal/openai_compat"
+	openaiCompatChat "github.com/lgc202/go-kit/llm/internal/openai_compat/chat"
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
-const DefaultBaseURL = "https://api.openai.com/v1"
+const DefaultBaseURL = "https://api.deepseek.com"
 
 var _ llm.ChatModel = (*Client)(nil)
 var _ llm.ProviderNamer = (*Client)(nil)
@@ -24,11 +24,11 @@ type Config struct {
 	DefaultHeaders http.Header
 
 	// DefaultOptions provides client-level defaults for request options.
-	DefaultOptions []llm.RequestOption
+	DefaultOptions []llm.ChatOption
 }
 
 type Client struct {
-	inner *openai_compat.Client
+	inner *openaiCompatChat.Client
 }
 
 func New(cfg Config) (*Client, error) {
@@ -37,8 +37,8 @@ func New(cfg Config) (*Client, error) {
 		base = DefaultBaseURL
 	}
 
-	inner, err := openai_compat.New(openai_compat.Config{
-		Provider:       llm.ProviderOpenAI,
+	inner, err := openaiCompatChat.New(openaiCompatChat.Config{
+		Provider:       llm.ProviderDeepSeek,
 		BaseURL:        base,
 		Path:           "/chat/completions",
 		APIKey:         cfg.APIKey,
@@ -53,12 +53,12 @@ func New(cfg Config) (*Client, error) {
 	return &Client{inner: inner}, nil
 }
 
-func (*Client) Provider() llm.Provider { return llm.ProviderOpenAI }
+func (*Client) Provider() llm.Provider { return llm.ProviderDeepSeek }
 
-func (c *Client) Chat(ctx context.Context, messages []schema.Message, opts ...llm.RequestOption) (schema.ChatResponse, error) {
+func (c *Client) Chat(ctx context.Context, messages []schema.Message, opts ...llm.ChatOption) (schema.ChatResponse, error) {
 	return c.inner.Chat(ctx, messages, opts...)
 }
 
-func (c *Client) ChatStream(ctx context.Context, messages []schema.Message, opts ...llm.RequestOption) (llm.Stream, error) {
+func (c *Client) ChatStream(ctx context.Context, messages []schema.Message, opts ...llm.ChatOption) (llm.Stream, error) {
 	return c.inner.ChatStream(ctx, messages, opts...)
 }

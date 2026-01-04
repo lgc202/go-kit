@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/lgc202/go-kit/llm"
-	"github.com/lgc202/go-kit/llm/provider/deepseek"
+	deepseek "github.com/lgc202/go-kit/llm/provider/deepseek/chat"
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
@@ -19,7 +19,7 @@ func Reasoning() error {
 
 	client, err := deepseek.New(deepseek.Config{
 		APIKey:         apiKey,
-		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-reasoner")},
+		DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-reasoner")},
 	})
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func ReasoningDisabled() error {
 
 	client, err := deepseek.New(deepseek.Config{
 		APIKey:         apiKey,
-		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-reasoner")},
+		DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-reasoner")},
 	})
 	if err != nil {
 		return err
@@ -89,7 +89,7 @@ func ReasoningStreaming() error {
 
 	client, err := deepseek.New(deepseek.Config{
 		APIKey:         apiKey,
-		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-reasoner")},
+		DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-reasoner")},
 	})
 	if err != nil {
 		return err

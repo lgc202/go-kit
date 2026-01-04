@@ -1,12 +1,8 @@
-package openai_compat
+package chat
 
 import (
 	"encoding/json"
 	"fmt"
-)
-
-const (
-	defaultChatCompletionsPath = "/chat/completions"
 )
 
 type wireContentType string

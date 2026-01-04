@@ -35,7 +35,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lgc202/go-kit/llm/provider/ollama"
+    ollama "github.com/lgc202/go-kit/llm/provider/ollama/chat"
     "github.com/lgc202/go-kit/llm/schema"
 )
 
@@ -64,7 +64,7 @@ func main() {
 ### 使用 Ollama 特有选项
 
 ```go
-import "github.com/lgc202/go-kit/llm/provider/ollama"
+import ollama "github.com/lgc202/go-kit/llm/provider/ollama/chat"
 
 resp, err := client.Chat(context.Background(), []schema.Message{
     schema.UserText("讲一个故事"),
@@ -230,6 +230,6 @@ type Config struct {
     DefaultHeaders http.Header
 
     // DefaultOptions 客户端级别的默认请求选项
-    DefaultOptions []llm.RequestOption
+    DefaultOptions []llm.ChatOption
 }
 ```

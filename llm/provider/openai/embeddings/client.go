@@ -1,4 +1,4 @@
-package deepseek
+package embeddings
 
 import (
 	"context"
@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/lgc202/go-kit/llm"
-	"github.com/lgc202/go-kit/llm/internal/openai_compat"
+	openaiCompatEmbeddings "github.com/lgc202/go-kit/llm/internal/openai_compat/embeddings"
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
-const DefaultBaseURL = "https://api.deepseek.com"
+const DefaultBaseURL = "https://api.openai.com/v1"
 
-var _ llm.ChatModel = (*Client)(nil)
+var _ llm.Embedder = (*Client)(nil)
 var _ llm.ProviderNamer = (*Client)(nil)
 
 type Config struct {
@@ -24,11 +24,11 @@ type Config struct {
 	DefaultHeaders http.Header
 
 	// DefaultOptions provides client-level defaults for request options.
-	DefaultOptions []llm.RequestOption
+	DefaultOptions []llm.EmbeddingOption
 }
 
 type Client struct {
-	inner *openai_compat.Client
+	inner *openaiCompatEmbeddings.Client
 }
 
 func New(cfg Config) (*Client, error) {
@@ -37,10 +37,10 @@ func New(cfg Config) (*Client, error) {
 		base = DefaultBaseURL
 	}
 
-	inner, err := openai_compat.New(openai_compat.Config{
-		Provider:       llm.ProviderDeepSeek,
+	inner, err := openaiCompatEmbeddings.New(openaiCompatEmbeddings.Config{
+		Provider:       llm.ProviderOpenAI,
 		BaseURL:        base,
-		Path:           "/chat/completions",
+		Path:           "/embeddings",
 		APIKey:         cfg.APIKey,
 		HTTPClient:     cfg.HTTPClient,
 		DefaultHeaders: cfg.DefaultHeaders,
@@ -53,12 +53,8 @@ func New(cfg Config) (*Client, error) {
 	return &Client{inner: inner}, nil
 }
 
-func (*Client) Provider() llm.Provider { return llm.ProviderDeepSeek }
+func (*Client) Provider() llm.Provider { return llm.ProviderOpenAI }
 
-func (c *Client) Chat(ctx context.Context, messages []schema.Message, opts ...llm.RequestOption) (schema.ChatResponse, error) {
-	return c.inner.Chat(ctx, messages, opts...)
-}
-
-func (c *Client) ChatStream(ctx context.Context, messages []schema.Message, opts ...llm.RequestOption) (llm.Stream, error) {
-	return c.inner.ChatStream(ctx, messages, opts...)
+func (c *Client) Embed(ctx context.Context, inputs []string, opts ...llm.EmbeddingOption) (schema.EmbeddingResponse, error) {
+	return c.inner.Embed(ctx, inputs, opts...)
 }

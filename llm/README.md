@@ -6,7 +6,11 @@
 
 - `schema/`: 统一的消息/工具/响应结构
 - `provider/`: 各厂商实现（OpenAI-compatible 等）
-- `internal/openai_compat/`: OpenAI-compatible 兼容层（供 provider 复用）
+- `provider/*/chat`: Chat client（按 endpoint 拆包，如 `provider/openai/chat`）
+- `provider/*/embeddings`: Embeddings client（按 endpoint 拆包，如 `provider/openai/embeddings`）
+- `internal/openai_compat/transport`: OpenAI-compatible 传输层复用（HTTP/headers/error）
+- `internal/openai_compat/chat`: OpenAI-compatible ChatCompletions 兼容实现
+- `internal/openai_compat/embeddings`: OpenAI-compatible Embeddings 兼容实现
 - `examples/`: 使用示例
 
 补充：

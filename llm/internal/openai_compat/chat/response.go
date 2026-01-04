@@ -1,16 +1,6 @@
-package openai_compat
+package chat
 
 import "encoding/json"
-
-// OpenAI 兼容的 chat completion 接口类型定义
-type errorResponse struct {
-	Error struct {
-		Message string          `json:"message"`
-		Type    string          `json:"type"`
-		Param   json.RawMessage `json:"param"`
-		Code    string          `json:"code"`
-	} `json:"error"`
-}
 
 type wireToolCall struct {
 	ID       string       `json:"id"`

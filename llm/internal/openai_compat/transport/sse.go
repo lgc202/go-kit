@@ -1,4 +1,4 @@
-package openai_compat
+package transport
 
 import (
 	"bufio"
@@ -6,17 +6,19 @@ import (
 	"strings"
 )
 
-type sseDecoder struct {
+// SSEDecoder decodes Server-Sent Events (SSE) and yields concatenated "data:" payloads.
+type SSEDecoder struct {
 	r   *bufio.Reader
 	buf []string
 }
 
-func newSSEDecoder(r io.Reader) *sseDecoder {
-	return &sseDecoder{r: bufio.NewReader(r)}
+func NewSSEDecoder(r io.Reader) *SSEDecoder {
+	return &SSEDecoder{r: bufio.NewReader(r)}
 }
 
-// NextData 返回下一个 SSE 数据载荷（用 "\n" 连接），当底层读取器结束时返回 io.EOF
-func (d *sseDecoder) NextData() (string, error) {
+// NextData returns the next SSE data payload joined by "\n".
+// It returns io.EOF when the underlying reader ends.
+func (d *SSEDecoder) NextData() (string, error) {
 	for {
 		line, err := d.r.ReadString('\n')
 		if err != nil && err != io.EOF {

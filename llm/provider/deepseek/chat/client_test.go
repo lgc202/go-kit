@@ -1,4 +1,4 @@
-package deepseek
+package chat
 
 import (
 	"context"
@@ -60,7 +60,7 @@ func TestChat_RequestAndResponseMapping(t *testing.T) {
 		BaseURL:        "https://example.test",
 		APIKey:         "tok",
 		HTTPClient:     httpClient,
-		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-chat")},
+		DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -158,7 +158,7 @@ func TestChatStream_BasicDelta(t *testing.T) {
 		BaseURL:        "https://example.test",
 		APIKey:         "tok",
 		HTTPClient:     httpClient,
-		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-chat")},
+		DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -203,7 +203,7 @@ func TestChatStream_EventHookCanEnrichExtraFields(t *testing.T) {
 		BaseURL:        "https://example.test",
 		APIKey:         "tok",
 		HTTPClient:     httpClient,
-		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-chat")},
+		DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)

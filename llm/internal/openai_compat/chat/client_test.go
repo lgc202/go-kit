@@ -1,4 +1,4 @@
-package openai_compat
+package chat
 
 import (
 	"context"
@@ -46,7 +46,7 @@ func TestClient_BaseURLWithPrefixPath(t *testing.T) {
 		BaseURL:        "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
 		APIKey:         "tok",
 		HTTPClient:     httpClient,
-		DefaultOptions: []llm.RequestOption{llm.WithModel("m")},
+		DefaultOptions: []llm.ChatOption{llm.WithModel("m")},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -101,7 +101,7 @@ func TestClient_BaseURLIsFullEndpoint(t *testing.T) {
 		BaseURL:        "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
 		APIKey:         "tok",
 		HTTPClient:     httpClient,
-		DefaultOptions: []llm.RequestOption{llm.WithModel("m")},
+		DefaultOptions: []llm.ChatOption{llm.WithModel("m")},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)

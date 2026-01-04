@@ -20,7 +20,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lgc202/go-kit/llm/provider/kimi"
+    kimi "github.com/lgc202/go-kit/llm/provider/kimi/chat"
     "github.com/lgc202/go-kit/llm/schema"
 )
 
@@ -105,6 +105,6 @@ type Config struct {
     DefaultHeaders http.Header
 
     // DefaultOptions 客户端级别的默认请求选项
-    DefaultOptions []llm.RequestOption
+    DefaultOptions []llm.ChatOption
 }
 ```

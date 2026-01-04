@@ -20,7 +20,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lgc202/go-kit/llm/provider/qwen"
+    qwen "github.com/lgc202/go-kit/llm/provider/qwen/chat"
     "github.com/lgc202/go-kit/llm/schema"
 )
 
@@ -62,7 +62,7 @@ resp, err := client.Chat(context.Background(), []schema.Message{
 Qwen 支持深度思考模型，通过 `qwen.WithThinking()` 启用：
 
 ```go
-import "github.com/lgc202/go-kit/llm/provider/qwen"
+import qwen "github.com/lgc202/go-kit/llm/provider/qwen/chat"
 
 resp, err := client.Chat(context.Background(), []schema.Message{
     schema.UserText("解决这个数学问题: ..."),
@@ -140,6 +140,6 @@ type Config struct {
     DefaultHeaders http.Header
 
     // DefaultOptions 客户端级别的默认请求选项
-    DefaultOptions []llm.RequestOption
+    DefaultOptions []llm.ChatOption
 }
 ```

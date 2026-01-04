@@ -15,7 +15,7 @@ go-kit 的企业级 DeepSeek API 客户端。
 ## 安装
 
 ```go
-import "github.com/lgc202/go-kit/llm/provider/deepseek"
+import deepseek "github.com/lgc202/go-kit/llm/provider/deepseek/chat"
 ```
 
 ## 快速开始
@@ -29,14 +29,14 @@ import (
     "os"
 
     "github.com/lgc202/go-kit/llm"
-    "github.com/lgc202/go-kit/llm/provider/deepseek"
+    deepseek "github.com/lgc202/go-kit/llm/provider/deepseek/chat"
     "github.com/lgc202/go-kit/llm/schema"
 )
 
 	func main() {
 	    client, err := deepseek.New(deepseek.Config{
 	        APIKey: os.Getenv("DEEPSEEK_API_KEY"),
-	        DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-chat")},
+	        DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-chat")},
 	    })
     if err != nil {
         panic(err)
@@ -132,7 +132,7 @@ llm.WithResponseFormat(schema.ResponseFormat{
 ```go
 	client, _ := deepseek.New(deepseek.Config{
 	    APIKey: os.Getenv("DEEPSEEK_API_KEY"),
-	    DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-reasoner")},
+	    DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-reasoner")},
 	})
 
 resp, err := client.Chat(context.Background(), []schema.Message{
@@ -325,7 +325,7 @@ if usage.CompletionTokensDetails != nil {
 ```go
 	client, err := deepseek.New(deepseek.Config{
 	    APIKey: os.Getenv("DEEPSEEK_API_KEY"),
-	    DefaultOptions: []llm.RequestOption{
+	    DefaultOptions: []llm.ChatOption{
 	        llm.WithModel("deepseek-chat"),
 	        llm.WithTemperature(0.7),
 	        llm.WithMaxTokens(1000),

@@ -1,4 +1,4 @@
-package openai_compat
+package chat
 
 import (
 	"encoding/base64"

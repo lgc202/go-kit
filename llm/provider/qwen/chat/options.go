@@ -1,4 +1,4 @@
-package qwen
+package chat
 
 import "github.com/lgc202/go-kit/llm"
 
@@ -13,6 +13,6 @@ const (
 //
 // - true: 启用深度思考模式
 // - false: 禁用深度思考模式
-func WithThinking(enabled bool) llm.RequestOption {
+func WithThinking(enabled bool) llm.ChatOption {
 	return llm.WithExtraField(extEnableThinking, enabled)
 }

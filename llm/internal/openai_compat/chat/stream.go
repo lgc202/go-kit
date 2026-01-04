@@ -1,4 +1,4 @@
-package openai_compat
+package chat
 
 import (
 	"encoding/json"
@@ -6,12 +6,13 @@ import (
 	"slices"
 
 	"github.com/lgc202/go-kit/llm"
+	"github.com/lgc202/go-kit/llm/internal/openai_compat/transport"
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
 type stream struct {
 	body io.ReadCloser
-	dec  *sseDecoder
+	dec  *transport.SSEDecoder
 
 	provider string
 	keepRaw  bool
@@ -26,7 +27,7 @@ const sseDoneToken = "[DONE]"
 func newStream(provider string, body io.ReadCloser, keepRaw bool, hooks []llm.StreamEventHook) *stream {
 	return &stream{
 		body:     body,
-		dec:      newSSEDecoder(body),
+		dec:      transport.NewSSEDecoder(body),
 		provider: provider,
 		keepRaw:  keepRaw,
 		hooks:    hooks,
@@ -124,10 +125,7 @@ func (s *stream) Recv() (schema.StreamEvent, error) {
 			}
 		}
 
-		// 将映射的事件添加到待处理列表
-		// 如果 mapped 为空，循环继续读取下一个数据块
 		s.pending = mapped
-		// 循环继续，会检查 pending 列表并返回
 	}
 }
 

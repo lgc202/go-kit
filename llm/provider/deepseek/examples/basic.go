@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/lgc202/go-kit/llm"
-	"github.com/lgc202/go-kit/llm/provider/deepseek"
+	deepseek "github.com/lgc202/go-kit/llm/provider/deepseek/chat"
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
@@ -20,7 +20,7 @@ func Basic() error {
 
 	client, err := deepseek.New(deepseek.Config{
 		APIKey:         apiKey,
-		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-chat")},
+		DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func Streaming() error {
 
 	client, err := deepseek.New(deepseek.Config{
 		APIKey:         apiKey,
-		DefaultOptions: []llm.RequestOption{llm.WithModel("deepseek-chat")},
+		DefaultOptions: []llm.ChatOption{llm.WithModel("deepseek-chat")},
 	})
 	if err != nil {
 		return err

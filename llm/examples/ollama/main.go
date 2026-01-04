@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/lgc202/go-kit/llm"
-	"github.com/lgc202/go-kit/llm/provider/ollama"
+	ollama "github.com/lgc202/go-kit/llm/provider/ollama/chat"
 	"github.com/lgc202/go-kit/llm/schema"
 )
 
@@ -19,7 +19,7 @@ func main() {
 	}
 
 	m, err := ollama.New(ollama.Config{
-		DefaultOptions: []llm.RequestOption{llm.WithModel(modelName)},
+		DefaultOptions: []llm.ChatOption{llm.WithModel(modelName)},
 	})
 	if err != nil {
 		log.Fatal(err)
