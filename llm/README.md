@@ -125,17 +125,36 @@ weatherTool, _ := schema.NewFunctionTool(
     },
 )
 
-resp, err := client.Chat(ctx, []schema.Message{
+messages := []schema.Message{
     schema.UserMessage("北京今天天气怎么样？"),
-},
-    llm.WithTools(weatherTool),
-)
+}
 
-msg := resp.Choices[0].Message
-if len(msg.ToolCalls) > 0 {
-    // 执行工具调用并返回结果
+// 循环处理：模型可能需要多次调用工具
+const maxSteps = 8
+for step := 0; step < maxSteps; step++ {
+    resp, err := client.Chat(ctx, messages, llm.WithTools(weatherTool))
+    if err != nil {
+        break
+    }
+
+    msg := resp.Choices[0].Message
+    messages = append(messages, msg)  // 重要：添加 assistant 消息到历史
+
+    if len(msg.ToolCalls) == 0 {
+        // 模型不再调用工具，返回最终回复
+        fmt.Println(msg.Text())
+        break
+    }
+
+    // 执行工具调用
     for _, tc := range msg.ToolCalls {
         fmt.Printf("调用: %s, 参数: %s\n", tc.Function.Name, tc.Function.Arguments)
+
+        // 执行工具获取结果
+        result := getWeather(tc.Function.Arguments)
+
+        // 将工具结果添加到历史
+        messages = append(messages, schema.ToolResultMessage(tc.ID, result))
     }
 }
 ```
