@@ -10,16 +10,15 @@ import (
 
 func TestNewUsesJSONOutputAndDefaultFields(t *testing.T) {
 	var buf bytes.Buffer
-	options := Options{
-		Output:  &buf,
-		Format:  FormatJSON,
-		Level:   LevelInfo,
-		Service: "billing-api",
-		Env:     "test",
-		Version: "v1.2.3",
-	}
 
-	logger, err := New(options)
+	logger, err := New(
+		WithOutput(&buf),
+		WithFormat(FormatJSON),
+		WithLevel(LevelInfo),
+		WithService("billing-api"),
+		WithEnv("test"),
+		WithVersion("v1.2.3"),
+	)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -41,13 +40,11 @@ func TestNewUsesJSONOutputAndDefaultFields(t *testing.T) {
 
 func TestLoggerChangesLevelAtRuntime(t *testing.T) {
 	var buf bytes.Buffer
-	options := Options{
-		Output: &buf,
-		Format: FormatJSON,
-		Level:  LevelInfo,
-	}
-
-	logger, err := New(options)
+	logger, err := New(
+		WithOutput(&buf),
+		WithFormat(FormatJSON),
+		WithLevel(LevelInfo),
+	)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -72,13 +69,11 @@ func TestLoggerChangesLevelAtRuntime(t *testing.T) {
 
 func TestRedactsConfiguredSensitiveFields(t *testing.T) {
 	var buf bytes.Buffer
-	options := Options{
-		Output:       &buf,
-		Format:       FormatJSON,
-		RedactFields: []string{"authorization", "token"},
-	}
-
-	logger, err := New(options)
+	logger, err := New(
+		WithOutput(&buf),
+		WithFormat(FormatJSON),
+		WithRedactFields("authorization", "token"),
+	)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -107,17 +102,15 @@ func TestRedactsConfiguredSensitiveFields(t *testing.T) {
 func TestFileOutputWritesToConfiguredPath(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/app.log"
-	options := Options{
-		Format: FormatJSON,
-		File: FileOptions{
+	logger, err := New(
+		WithFormat(FormatJSON),
+		WithFile(FileOptions{
 			Path:       path,
 			MaxSizeMB:  1,
 			MaxBackups: 2,
 			MaxAgeDays: 3,
-		},
-	}
-
-	logger, err := New(options)
+		}),
+	)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -139,9 +132,7 @@ func TestFileOutputWritesToConfiguredPath(t *testing.T) {
 }
 
 func TestInvalidConfigReturnsError(t *testing.T) {
-	options := Options{Level: "verbose"}
-
-	if _, err := New(options); err == nil {
+	if _, err := New(WithLevel("verbose")); err == nil {
 		t.Fatalf("New() error = nil, want invalid level error")
 	}
 }
@@ -150,15 +141,13 @@ func TestFileOutputAlsoWritesToOutput(t *testing.T) {
 	var buf bytes.Buffer
 	dir := t.TempDir()
 	path := dir + "/app.log"
-	options := Options{
-		Output: &buf,
-		Format: FormatJSON,
-		File: FileOptions{
+	logger, err := New(
+		WithOutput(&buf),
+		WithFormat(FormatJSON),
+		WithFile(FileOptions{
 			Path: path,
-		},
-	}
-
-	logger, err := New(options)
+		}),
+	)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}

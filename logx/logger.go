@@ -58,16 +58,19 @@ func (l *Logger) Close() error {
 	return l.closer.Close()
 }
 
-// New 根据 options 创建 Logger。
-func New(options Options) (*Logger, error) {
-	options = defaultOptions(options)
+// New 根据 opts 创建 Logger。
+func New(opts ...Option) (*Logger, error) {
+	options := defaultOptions()
+	for _, opt := range opts {
+		opt.apply(&options)
+	}
 
-	level, err := parseLevel(options.Level)
+	level, err := parseLevel(options.level)
 	if err != nil {
 		return nil, err
 	}
 
-	w, closer := buildOutput(options.Output, options.File)
+	w, closer := buildOutput(options.output, options.file)
 	if w == nil {
 		w = os.Stdout
 	}
@@ -75,20 +78,20 @@ func New(options Options) (*Logger, error) {
 	logger := &Logger{closer: closer}
 	logger.level.Set(level)
 
-	opts := &slog.HandlerOptions{
-		AddSource:   options.AddSource,
+	handlerOptions := &slog.HandlerOptions{
+		AddSource:   options.addSource,
 		Level:       &logger.level,
 		ReplaceAttr: redactAttr(options),
 	}
 
 	var handler slog.Handler
-	switch options.Format {
+	switch options.format {
 	case FormatText:
-		handler = slog.NewTextHandler(w, opts)
+		handler = slog.NewTextHandler(w, handlerOptions)
 	case FormatJSON:
-		handler = slog.NewJSONHandler(w, opts)
+		handler = slog.NewJSONHandler(w, handlerOptions)
 	default:
-		return nil, fmt.Errorf("logx: unsupported format %q", options.Format)
+		return nil, fmt.Errorf("logx: unsupported format %q", options.format)
 	}
 
 	logger.Logger = slog.New(handler)

@@ -1,6 +1,6 @@
 # go-kit
 
-`github.com/lgc202/go-kit` 是一个 Go 通用工具箱仓库：尽量用“小而稳”的包来解决工程里反复出现的问题（配置、版本信息、日志、LLM 等），并提供可直接拷走的示例。
+`github.com/lgc202/go-kit` 是一个 Go 通用工具箱仓库：尽量用“小而稳”的包来解决工程里反复出现的问题（配置、版本信息、日志、Redis、LLM 等），并提供可直接拷走的示例。
 
 ## Requirements
 
@@ -13,6 +13,7 @@
 | `config` | 类型安全的配置加载（文件 + env + 默认值），支持热更新回调 | `config/README.md` |
 | `version` | 构建时注入版本信息，支持 text/json/short 输出（CLI 友好） | `version/README.md` |
 | `logx` | 基于 `log/slog` 的结构化日志：动态级别、脱敏、文件轮转 | `logx/README.md` |
+| `redisx` | 基于 `go-redis` 的 Redis client 初始化：单机、Sentinel、Cluster | `redisx/README.md` |
 | `llm` | 统一的 LLM Client（OpenAI Chat Completions 兼容格式）+ 多 provider | `llm/README.md` |
 
 ## Quick Start
@@ -58,16 +59,24 @@ fmt.Println(info.ShortString()) // v1.2.3
 ```go
 import "log/slog"
 
-logger, err := logx.New(logx.Options{
-	Format:  logx.FormatJSON,
-	Level:   logx.LevelInfo,
-	Service: "user-api",
-	Env:     "prod",
-})
+logger, err := logx.New(
+	logx.WithFormat(logx.FormatJSON),
+	logx.WithLevel(logx.LevelInfo),
+	logx.WithService("user-api"),
+	logx.WithEnv("prod"),
+)
 if err != nil { /* ... */ }
 
 logger.Info("server started", slog.String("addr", ":8080"))
 _ = logger.SetLevel(logx.LevelDebug)
+```
+
+### redisx: Redis client 初始化
+
+```go
+client, err := redisx.New(redisx.WithAddr("127.0.0.1:6379"))
+if err != nil { /* ... */ }
+defer client.Close()
 ```
 
 ### llm: 统一 Chat / Stream / Tools

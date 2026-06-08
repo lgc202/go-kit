@@ -5,18 +5,18 @@ import (
 	"strings"
 )
 
-func redactAttr(options Options) func(groups []string, attr slog.Attr) slog.Attr {
-	if len(options.RedactFields) == 0 {
+func redactAttr(options options) func(groups []string, attr slog.Attr) slog.Attr {
+	if len(options.redactFields) == 0 {
 		return nil
 	}
 
-	replacement := options.RedactValue
+	replacement := options.redactValue
 	if replacement == "" {
 		replacement = defaultRedactValue
 	}
 
-	fields := make(map[string]struct{}, len(options.RedactFields))
-	for _, field := range options.RedactFields {
+	fields := make(map[string]struct{}, len(options.redactFields))
+	for _, field := range options.redactFields {
 		field = strings.ToLower(strings.TrimSpace(field))
 		if field != "" {
 			fields[field] = struct{}{}

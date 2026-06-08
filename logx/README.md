@@ -17,13 +17,13 @@
 ```go
 import "log/slog"
 
-logger, err := logx.New(logx.Options{
-	Format:  logx.FormatJSON,
-	Level:   logx.LevelInfo,
-	Service: "user-api",
-	Env:     "prod",
-	Version: "v1.2.3",
-})
+logger, err := logx.New(
+	logx.WithFormat(logx.FormatJSON),
+	logx.WithLevel(logx.LevelInfo),
+	logx.WithService("user-api"),
+	logx.WithEnv("prod"),
+	logx.WithVersion("v1.2.3"),
+)
 if err != nil {
 	return err
 }
@@ -39,16 +39,16 @@ _ = logger.SetLevel(logx.LevelDebug)
 日志会同时写入 `Output` 和轮转文件。
 
 ```go
-logger, err := logx.New(logx.Options{
-	Format: logx.FormatJSON,
-	File: logx.FileOptions{
+logger, err := logx.New(
+	logx.WithFormat(logx.FormatJSON),
+	logx.WithFile(logx.FileOptions{
 		Path:       "./logs/app.log",
 		MaxSizeMB:  100,
 		MaxBackups: 10,
 		MaxAgeDays: 7,
 		Compress:   true,
-	},
-})
+	}),
+)
 if err != nil {
 	return err
 }
@@ -63,7 +63,7 @@ logger.Info("file logging enabled")
 `secret`、`cookie`。
 
 ```go
-logger, err := logx.New(logx.Options{
-	RedactFields: []string{"token", "authorization", "private_key"},
-})
+logger, err := logx.New(
+	logx.WithRedactFields("token", "authorization", "private_key"),
+)
 ```
