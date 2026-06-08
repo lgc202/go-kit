@@ -7,6 +7,7 @@ require (
 	github.com/gosuri/uitable v0.0.4
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (
