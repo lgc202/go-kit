@@ -67,6 +67,19 @@ func TestLoggerChangesLevelAtRuntime(t *testing.T) {
 	}
 }
 
+func TestLoggerLevelReturnsInfoForNonStandardLevel(t *testing.T) {
+	logger, err := New()
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	logger.level.Set(slog.Level(12))
+
+	if got := logger.Level(); got != LevelInfo {
+		t.Fatalf("Level() = %v, want %v", got, LevelInfo)
+	}
+}
+
 func TestRedactsConfiguredSensitiveFields(t *testing.T) {
 	var buf bytes.Buffer
 	logger, err := New(
@@ -96,6 +109,24 @@ func TestRedactsConfiguredSensitiveFields(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Fatalf("log output %q does not contain %s", out, want)
 		}
+	}
+}
+
+func TestRedactionCanBeDisabled(t *testing.T) {
+	var buf bytes.Buffer
+	logger, err := New(
+		WithOutput(&buf),
+		WithFormat(FormatJSON),
+		WithRedactDisabled(),
+	)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	logger.Info("request received", slog.String("token", "abc123"))
+
+	if !strings.Contains(buf.String(), `"token":"abc123"`) {
+		t.Fatalf("log output %q does not contain unredacted token", buf.String())
 	}
 }
 
@@ -134,6 +165,12 @@ func TestFileOutputWritesToConfiguredPath(t *testing.T) {
 func TestInvalidConfigReturnsError(t *testing.T) {
 	if _, err := New(WithLevel("verbose")); err == nil {
 		t.Fatalf("New() error = nil, want invalid level error")
+	}
+}
+
+func TestNewRejectsNilOption(t *testing.T) {
+	if _, err := New(nil); err == nil {
+		t.Fatalf("New(nil) error = nil, want error")
 	}
 }
 

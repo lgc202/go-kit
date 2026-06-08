@@ -1,7 +1,9 @@
 package redisx
 
 import (
+	"context"
 	"crypto/tls"
+	"errors"
 	"testing"
 	"time"
 
@@ -109,9 +111,37 @@ func TestNewSentinelRequiresMasterName(t *testing.T) {
 	}
 }
 
+func TestWithSentinelAuthAppliesOptions(t *testing.T) {
+	options := defaultOptions()
+	WithSentinelAuth("sentinel-user", "sentinel-secret").apply(&options)
+
+	if options.sentinelUsername != "sentinel-user" {
+		t.Fatalf("sentinelUsername = %q, want sentinel-user", options.sentinelUsername)
+	}
+	if options.sentinelPassword != "sentinel-secret" {
+		t.Fatalf("sentinelPassword = %q, want sentinel-secret", options.sentinelPassword)
+	}
+}
+
 func TestNewRejectsInvalidMode(t *testing.T) {
 	if _, err := New(testMode("proxy")); err == nil {
 		t.Fatalf("New(invalid mode) error = nil, want error")
+	}
+}
+
+func TestNewRejectsNilOption(t *testing.T) {
+	if _, err := New(nil); err == nil {
+		t.Fatalf("New(nil) error = nil, want error")
+	}
+}
+
+func TestNewWithContextUsesContextForPing(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := NewWithContext(ctx, WithPing(true))
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("NewWithContext(canceled ctx, WithPing(true)) error = %v, want context.Canceled", err)
 	}
 }
 

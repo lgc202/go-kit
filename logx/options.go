@@ -133,6 +133,13 @@ func WithRedactFields(fields ...string) Option {
 	})
 }
 
+// WithRedactDisabled 关闭字段脱敏。
+func WithRedactDisabled() Option {
+	return optionFunc(func(options *options) {
+		options.redactFields = []string{}
+	})
+}
+
 // WithRedactValue 设置脱敏后的占位值。
 func WithRedactValue(value string) Option {
 	return optionFunc(func(options *options) {

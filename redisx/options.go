@@ -34,7 +34,9 @@ type options struct {
 	password string
 	db       int
 
-	masterName string
+	masterName       string
+	sentinelUsername string
+	sentinelPassword string
 
 	dialTimeout  time.Duration
 	readTimeout  time.Duration
@@ -63,19 +65,20 @@ func WithAddr(addr string) Option {
 	})
 }
 
-// WithAddrs 设置 Redis 地址列表。
-func WithAddrs(addrs ...string) Option {
-	return optionFunc(func(options *options) {
-		options.addrs = append([]string(nil), addrs...)
-	})
-}
-
 // WithSentinel 使用 Redis Sentinel。
 func WithSentinel(masterName string, addrs ...string) Option {
 	return optionFunc(func(options *options) {
 		options.mode = ModeSentinel
 		options.masterName = masterName
 		options.addrs = append([]string(nil), addrs...)
+	})
+}
+
+// WithSentinelAuth 设置 Sentinel 自身的认证信息。
+func WithSentinelAuth(username, password string) Option {
+	return optionFunc(func(options *options) {
+		options.sentinelUsername = username
+		options.sentinelPassword = password
 	})
 }
 

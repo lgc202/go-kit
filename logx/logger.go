@@ -33,7 +33,7 @@ func (l *Logger) Level() Level {
 	case slog.LevelError:
 		return LevelError
 	default:
-		return Level(l.level.Level().String())
+		return LevelInfo
 	}
 }
 
@@ -62,6 +62,9 @@ func (l *Logger) Close() error {
 func New(opts ...Option) (*Logger, error) {
 	options := defaultOptions()
 	for _, opt := range opts {
+		if opt == nil {
+			return nil, fmt.Errorf("logx: nil option")
+		}
 		opt.apply(&options)
 	}
 
